@@ -22,6 +22,7 @@ unsigned char reduceim1[735][504];
 void reduceTheMatrix(vector<unsigned char> imagen, unsigned char reducematrix[735][504]);
 void project(unsigned char im0[735][504], unsigned char im1[735][504]);
 unsigned lodepng_encode_file(const char* filename, const unsigned char* image, unsigned w, unsigned h, LodePNGColorType colortype, unsigned bitdepth);
+void operations(int j, int i, int vector0[windowSize*windowSize], unsigned char im1[735][504], int average0, int desTipica0);
 
 int main(int argc, char *argv[]){
 
@@ -48,6 +49,7 @@ int main(int argc, char *argv[]){
 	reduceTheMatrix(image0, reduceim0);
 	reduceTheMatrix(image1, reduceim1);
 	project(reduceim0, reduceim1);
+	int a = 0;
 }
 
 
@@ -99,59 +101,69 @@ void project(unsigned char im0[735][504], unsigned char im1[735][504]){
 			}
 			desTipica0 = sqrt(desTipica0 / pow(windowSize, 2));
 
-			for (int d = 0; d < disparity; d++){ //RECORRER VENTANAS IMAGEN 1
-
-				for (int h = j; h < height - windowSize / 2; h++){
-					for (int g = i; g < width - windowSize / 2; g++){
-						count1 = 0;
-						int n = 0;
-						for (int win_y = h - windowSize / 2; win_y < windowSize; win_y++){ //CONTADOR DE LOS DATOS VENTANA IMAGEN 1
-							for (int win_x = g - windowSize / 2; win_x < windowSize; win_x++){
-								count1 = count1 + im1[win_y][win_x];
-								vector1[n] = im1[win_y][win_x]; //CREAR VECTOR DE DATOS VENTANA IMAGEN 1
-								n++;
-							}
-						}
-						average1 = 0;
-						average1 = count1 / pow(windowSize, 2);
-						int aux1 = 0;
-						desTipica1 = 0;
-						for (n = 0; n < sizeof(vector1) / sizeof(*vector1); n++){//RECORRER OTRA VEZ VENTANA IMAGEN 1, esta vez usamos el vector
-							aux1 = vector1[n] - average0;
-							desTipica1 = desTipica1 + pow(aux1, 2);
-						}
-						desTipica1 = sqrt(desTipica1 / pow(windowSize, 2));
-
-						int auxcovarianza = 0;
-						covarianza = 0;
-						for (n = 0; n < sizeof(vector1) / sizeof(*vector1); n++) { //CALCULAR COVARIANZA CON LOS DATOS GUARDADOS EN LOS VECTORES
-							auxcovarianza = (vector0[n] - average0) * (vector1[n] - average1);
-							covarianza = covarianza + auxcovarianza;
-						}
-						covarianza = covarianza / pow(windowSize, 2);
-
-						correlation = covarianza / (desTipica0 * desTipica1); // CORRELACIÓN
-
-						// WE ARE GOING TO COMPARING ONE WINDOW IN THE IMG0 WITH 260 WINDOWS IN THE IMG1 AND WE TAKE THE BIGGEST ONE 
-						// WHICH IT IS THE BIGGEST DISPARITY
-						if (g == i && h == j){
-							biggestCorrelation = correlation;
-							int newPixelY = j; //WE SAVE THE COORDINATES OF THE PIXEL WITH THE BIGGEST CORRELATION
-							int newPixelX = i;
-						}
-						if (correlation > biggestCorrelation){
-							biggestCorrelation = correlation;
-							int newPixelY = j; //WE SAVE THE COORDINATES OF THE PIXEL WITH THE BIGGEST CORRELATION
-							int newPixelX = i;
-
-						}
-
-					}
-				}				
+			operations(j, i, vector0, im1, average0, desTipica0);
+							
 				
-			}
+			
 
 		}
 	}
 
+}
+
+void operations(int j, int i, int vector0[windowSize*windowSize], unsigned char im1[735][504], int average0, int desTipica0){
+
+	int vector1[windowSize * windowSize];
+	int h = j;
+	int g = i;
+	int countDisparity = 0;
+	while (g < height - windowSize / 2 && countDisparity < 260){
+		while (h < width - windowSize / 2 && countDisparity < 260){
+			int count1 = 0;
+			int n = 0;
+			for (int win_y = h - windowSize / 2; win_y < windowSize; win_y++){ //CONTADOR DE LOS DATOS VENTANA IMAGEN 1
+				for (int win_x = g - windowSize / 2; win_x < windowSize; win_x++){
+					count1 = count1 + im1[win_y][win_x];
+					vector1[n] = im1[win_y][win_x]; //CREAR VECTOR DE DATOS VENTANA IMAGEN 1
+					n++;
+				}
+			}
+			int average1 = 0;
+			average1 = count1 / pow(windowSize, 2);
+			int aux1 = 0;
+			int desTipica1 = 0;
+			for (n = 0; n < sizeof(vector1) / sizeof(*vector1); n++){//RECORRER OTRA VEZ VENTANA IMAGEN 1, esta vez usamos el vector
+				aux1 = vector1[n] - average0;
+				desTipica1 = desTipica1 + pow(aux1, 2);
+			}
+			desTipica1 = sqrt(desTipica1 / pow(windowSize, 2));
+
+			int auxcovarianza = 0;
+			int covarianza = 0;
+			for (n = 0; n < sizeof(vector1) / sizeof(*vector1); n++) { //CALCULAR COVARIANZA CON LOS DATOS GUARDADOS EN LOS VECTORES
+				auxcovarianza = (vector0[n] - average0) * (vector1[n] - average1);
+				covarianza = covarianza + auxcovarianza;
+			}
+			covarianza = covarianza / pow(windowSize, 2);
+
+			correlation = covarianza / (desTipica0 * desTipica1); // CORRELACIÓN
+
+			// WE ARE GOING TO COMPARING ONE WINDOW IN THE IMG0 WITH 260 WINDOWS IN THE IMG1 AND WE TAKE THE BIGGEST ONE 
+			// WHICH IT IS THE BIGGEST DISPARITY
+			if (g == 4 && h == 4){
+				biggestCorrelation = correlation;
+				int newPixelY = g; //WE SAVE THE COORDINATES OF THE PIXEL WITH THE BIGGEST CORRELATION
+				int newPixelX = h;
+			}
+			if (correlation > biggestCorrelation){
+				biggestCorrelation = correlation;
+				int newPixelY = g; //WE SAVE THE COORDINATES OF THE PIXEL WITH THE BIGGEST CORRELATION
+				int newPixelX = h;
+
+			}
+			countDisparity++;
+			g++;
+		}
+		h++;
+	}
 }
