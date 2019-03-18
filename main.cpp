@@ -25,13 +25,17 @@ double DerIzq[735][504];
 // MAPA FINAL//
 double FinalMap[735][504];
 
+// MAPA FINAL EN UN VECTOR
+std::vector<unsigned char>FinalVector;
+
 void reduceTheMatrix(vector<unsigned char> imagen, unsigned char reducematrix[735][504]);
-void ZNCC(unsigned char im0[735][504], unsigned char im1[735][504]);
-unsigned lodepng_encode_file(const char* filename, const unsigned char* image, unsigned w, unsigned h, LodePNGColorType colortype, unsigned bitdepth);
+void ZNCC(unsigned char im0[735][504], unsigned char im1[735][504], double DisMap[735][504]);
 double operations(int j, int i, int vector0[windowSize*windowSize], unsigned char im1[735][504], int average0, int desTipica0);
 void MapToZero(double DispMap[735][504]);
 void CalculateLastMap(double firstMap[735][504], double secondMap[735][504], double lastMap[735][504]);
 void SustituirCeros(double lastMap[735][504]);
+void MapToVector(double Map[735][504], vector<unsigned char>& vector);
+void encodeOneStep(const char* filename, vector<unsigned char>& image, unsigned width, unsigned height);
 
 int main(int argc, char *argv[]){
 
@@ -57,16 +61,17 @@ int main(int argc, char *argv[]){
 
 	reduceTheMatrix(image0, reduceim0);
 	reduceTheMatrix(image1, reduceim1);
-	MapToZero(IzqDer);
-	MapToZero(DerIzq);
+	//MapToZero(IzqDer);
+	//MapToZero(DerIzq);
 	ZNCC(reduceim0, reduceim1, IzqDer);
 	ZNCC(reduceim1, reduceim0, DerIzq);
 	CalculateLastMap(IzqDer, DerIzq, FinalMap);
 	SustituirCeros(FinalMap);
-	//IMPRIMIR FOTOGRAFIA
+	MapToVector(FinalMap, FinalVector);
+	//IMPRIMIR FOTOGRAFIA	
+	encodeOneStep(".\\images\\out.png", FinalVector, width / 4, height / 4);
 	
 }
-
 
 void reduceTheMatrix(vector<unsigned char> imagen, unsigned char reducematrix[735][504]){
 
@@ -116,8 +121,6 @@ void ZNCC(unsigned char im0[735][504], unsigned char im1[735][504], double DisMa
 			desTipica0 = sqrt(desTipica0 / pow(windowSize, 2));
 
 			DisMap[j][i] = operations(j, i, vector0, im1, average0, desTipica0);							
-				
-			
 
 		}
 	}
@@ -147,15 +150,15 @@ double operations(int j, int i, int vector0[windowSize*windowSize], unsigned cha
 			int average1 = 0;
 			average1 = count1 / pow(windowSize, 2);
 			int aux1 = 0;
-			int desTipica1 = 0;
+			double desTipica1 = 0;
 			for (n = 0; n < sizeof(vector1) / sizeof(*vector1); n++){//RECORRER OTRA VEZ VENTANA IMAGEN 1, esta vez usamos el vector
 				aux1 = vector1[n] - average0;
 				desTipica1 = desTipica1 + pow(aux1, 2);
 			}
 			desTipica1 = sqrt(desTipica1 / pow(windowSize, 2));
 
-			int auxcovarianza = 0;
-			int covarianza = 0;
+			double auxcovarianza = 0;
+			double covarianza = 0;
 			for (n = 0; n < sizeof(vector1) / sizeof(*vector1); n++) { //CALCULAR COVARIANZA CON LOS DATOS GUARDADOS EN LOS VECTORES
 				auxcovarianza = (vector0[n] - average0) * (vector1[n] - average1);
 				covarianza = covarianza + auxcovarianza;
@@ -165,41 +168,31 @@ double operations(int j, int i, int vector0[windowSize*windowSize], unsigned cha
 			correlation = covarianza / (desTipica0 * desTipica1); // CORRELACIÓN
 			// WE ARE GOING TO COMPARING ONE WINDOW IN THE IMG0 WITH 260 WINDOWS IN THE IMG1 AND WE TAKE THE BIGGEST ONE 
 			// WHICH IT IS THE BIGGEST DISPARITY
-			if (g == 4 && h == 4){
-				biggestCorrelation = correlation;
-				newPixelY = g; //WE SAVE THE COORDINATES OF THE PIXEL WITH THE BIGGEST CORRELATION
-				newPixelX = h;
-				cout << "(" << newPixelX << "," << newPixelY << ")" << "\n";
-			}
+			
 			if (correlation > biggestCorrelation){
-				biggestCorrelation = correlation;
-				newPixelY = g; //WE SAVE THE COORDINATES OF THE PIXEL WITH THE BIGGEST CORRELATION
-				newPixelX = h;
-				cout << "(" << newPixelX << "," << newPixelY << ")" << "\n";
-
-
+				biggestCorrelation = correlation;				
 			}
 			countDisparity++;
-			g++;
+			h++;
 		}
-		h++;
+		g++;
 	}
 	return biggestCorrelation;
 }
 
-void MapToZero(double DispMap[735][504]) {
+/*void MapToZero(double DispMap[735][504]) {
 	for (int i = 0; i < 735; i++) {
 		for (int j = 0; j < 504; j++) {
 			DispMap[i][j] = 0;
 		}
 	}
 }
-
+*/
 void CalculateLastMap(double firstMap[735][504], double secondMap[735][504], double lastMap[735][504]){
 	
 	int resta = 0;
-	for (int i = 0; i < 735; i++) {
-		for (int j = 0; j < 504; j++) {
+	for (int i = 4; i < 735 - 4; i++) {
+		for (int j = 4; j < 504 - 4; j++) {
 			resta = firstMap[i][j] - secondMap[i][j];
 			resta = abs(resta);
 			if (resta > 8){
@@ -214,13 +207,33 @@ void CalculateLastMap(double firstMap[735][504], double secondMap[735][504], dou
 
 void SustituirCeros(double lastMap[735][504]){
 	int aux = 0;
-	for (unsigned i = windowSize / 2; i < height - windowSize / 2; i++){
+	for (int i = windowSize / 2; i < height - windowSize / 2; i++){
 		for (int j = windowSize / 2; j < width - windowSize / 2; j++){
 			if (lastMap[j][i] == 0){
 				aux = lastMap[j][i + 1] + lastMap[j][i - 1] + lastMap[j + 1][i] + lastMap[j - 1][i] + lastMap[j - 1][i - 1] + lastMap[j - 1][i + 1] + lastMap[j + 1][i - 1] + lastMap[j + 1][i + 1];
 				aux = aux / 8;
 				lastMap[j][i] = aux;
+				cout << lastMap[j][i] << " ";
+
 			}
 		}
 	}
+}
+
+void MapToVector(double Map[735][504], std::vector<unsigned char>& vector){
+	int n = 0;
+	for (int i = windowSize / 2; i < height - windowSize / 2; i++){
+		for (int j = windowSize / 2; j < width - windowSize / 2; j++){
+			vector[n] = Map[j][i];
+			n++;
+		}
+	}
+}
+
+void encodeOneStep(const char* filename, std::vector<unsigned char>& image, unsigned width, unsigned height) {
+	//Encode the image
+	unsigned error = lodepng::encode(filename, image, width, height);
+
+	//if there's an error, display it
+	if (error) std::cout << "encoder error " << error << ": " << lodepng_error_text(error) << std::endl;
 }
