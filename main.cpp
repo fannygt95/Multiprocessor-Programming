@@ -18,11 +18,20 @@ double biggestCorrelation = 0;
 unsigned char reduceim0[735][504];
 unsigned char reduceim1[735][504];
 
+// MAPAS DE DISPARIDAD //
+double IzqDer[735][504];
+double DerIzq[735][504];
+
+// MAPA FINAL//
+double FinalMap[735][504];
 
 void reduceTheMatrix(vector<unsigned char> imagen, unsigned char reducematrix[735][504]);
-void project(unsigned char im0[735][504], unsigned char im1[735][504]);
+void ZNCC(unsigned char im0[735][504], unsigned char im1[735][504]);
 unsigned lodepng_encode_file(const char* filename, const unsigned char* image, unsigned w, unsigned h, LodePNGColorType colortype, unsigned bitdepth);
-void operations(int j, int i, int vector0[windowSize*windowSize], unsigned char im1[735][504], int average0, int desTipica0);
+double operations(int j, int i, int vector0[windowSize*windowSize], unsigned char im1[735][504], int average0, int desTipica0);
+void MapToZero(double DispMap[735][504]);
+void CalculateLastMap(double firstMap[735][504], double secondMap[735][504], double lastMap[735][504]);
+void SustituirCeros(double lastMap[735][504]);
 
 int main(int argc, char *argv[]){
 
@@ -48,16 +57,14 @@ int main(int argc, char *argv[]){
 
 	reduceTheMatrix(image0, reduceim0);
 	reduceTheMatrix(image1, reduceim1);
-	project(reduceim0, reduceim1);
-	int a = 0;
-}
-
-void MapToZero(unsigned char DispMap[735][504]) {
-	for (int i = 0; i < 735; i++) {
-		for (int j = 0; j < 504; j++) {
-			DispMap[i][j] = 0;
-		}
-	}
+	MapToZero(IzqDer);
+	MapToZero(DerIzq);
+	ZNCC(reduceim0, reduceim1, IzqDer);
+	ZNCC(reduceim1, reduceim0, DerIzq);
+	CalculateLastMap(IzqDer, DerIzq, FinalMap);
+	SustituirCeros(FinalMap);
+	//IMPRIMIR FOTOGRAFIA
+	
 }
 
 
@@ -79,13 +86,12 @@ void reduceTheMatrix(vector<unsigned char> imagen, unsigned char reducematrix[73
 	}
 }
 
-
-void project(unsigned char im0[735][504], unsigned char im1[735][504]){
+void ZNCC(unsigned char im0[735][504], unsigned char im1[735][504], double DisMap[735][504]){
 	int count0 = 0, count1 = 0;  //Contador para la suma de los datos de las ventanas
 	int vector0[windowSize * windowSize]; //Guarda los datos de la ventana de la primera imagen
 	int vector1[windowSize * windowSize]; //Guarda los datos de la ventana de la segunda imagen
 	unsigned average0, average1; //Calcular medias
-	double desTipica0 = 0, desTipica1 = 0; //Calcular desviaciones tÃ­picas
+	double desTipica0 = 0, desTipica1 = 0; //Calcular desviaciones típicas
 	double covarianza = 0; // Calcular covarianza
 
 	for (unsigned i = windowSize / 2; i < height - windowSize / 2; i++){  //RECORRER IMAGEN
@@ -109,8 +115,7 @@ void project(unsigned char im0[735][504], unsigned char im1[735][504]){
 			}
 			desTipica0 = sqrt(desTipica0 / pow(windowSize, 2));
 
-			operations(j, i, vector0, im1, average0, desTipica0);
-							
+			DisMap[j][i] = operations(j, i, vector0, im1, average0, desTipica0);							
 				
 			
 
@@ -119,18 +124,21 @@ void project(unsigned char im0[735][504], unsigned char im1[735][504]){
 
 }
 
-void operations(int j, int i, int vector0[windowSize*windowSize], unsigned char im1[735][504], int average0, int desTipica0){
+double operations(int j, int i, int vector0[windowSize*windowSize], unsigned char im1[735][504], int average0, int desTipica0){
 
+	int newPixelY = 0;
+	int newPixelX = 0;
 	int vector1[windowSize * windowSize];
 	int h = j;
 	int g = i;
 	int countDisparity = 0;
-	while (g < height - windowSize / 2 && countDisparity < 260){
-		while (h < width - windowSize / 2 && countDisparity < 260){
+	biggestCorrelation = 0;
+	while (g < height - windowSize / 2 && countDisparity < disparity){
+		while (h < width - windowSize / 2 && countDisparity < disparity){
 			int count1 = 0;
 			int n = 0;
-			for (int win_y = h - windowSize / 2; win_y < windowSize; win_y++){ //CONTADOR DE LOS DATOS VENTANA IMAGEN 1
-				for (int win_x = g - windowSize / 2; win_x < windowSize; win_x++){
+			for (int win_y = g - windowSize / 2; win_y < windowSize; win_y++){ //CONTADOR DE LOS DATOS VENTANA IMAGEN 1
+				for (int win_x = h - windowSize / 2; win_x < windowSize; win_x++){
 					count1 = count1 + im1[win_y][win_x];
 					vector1[n] = im1[win_y][win_x]; //CREAR VECTOR DE DATOS VENTANA IMAGEN 1
 					n++;
@@ -154,24 +162,65 @@ void operations(int j, int i, int vector0[windowSize*windowSize], unsigned char 
 			}
 			covarianza = covarianza / pow(windowSize, 2);
 
-			correlation = covarianza / (desTipica0 * desTipica1); // CORRELACIÃ“N
-
+			correlation = covarianza / (desTipica0 * desTipica1); // CORRELACIÓN
 			// WE ARE GOING TO COMPARING ONE WINDOW IN THE IMG0 WITH 260 WINDOWS IN THE IMG1 AND WE TAKE THE BIGGEST ONE 
 			// WHICH IT IS THE BIGGEST DISPARITY
 			if (g == 4 && h == 4){
 				biggestCorrelation = correlation;
-				int newPixelY = g; //WE SAVE THE COORDINATES OF THE PIXEL WITH THE BIGGEST CORRELATION
-				int newPixelX = h;
+				newPixelY = g; //WE SAVE THE COORDINATES OF THE PIXEL WITH THE BIGGEST CORRELATION
+				newPixelX = h;
+				cout << "(" << newPixelX << "," << newPixelY << ")" << "\n";
 			}
 			if (correlation > biggestCorrelation){
 				biggestCorrelation = correlation;
-				int newPixelY = g; //WE SAVE THE COORDINATES OF THE PIXEL WITH THE BIGGEST CORRELATION
-				int newPixelX = h;
+				newPixelY = g; //WE SAVE THE COORDINATES OF THE PIXEL WITH THE BIGGEST CORRELATION
+				newPixelX = h;
+				cout << "(" << newPixelX << "," << newPixelY << ")" << "\n";
+
 
 			}
 			countDisparity++;
 			g++;
 		}
 		h++;
+	}
+	return biggestCorrelation;
+}
+
+void MapToZero(double DispMap[735][504]) {
+	for (int i = 0; i < 735; i++) {
+		for (int j = 0; j < 504; j++) {
+			DispMap[i][j] = 0;
+		}
+	}
+}
+
+void CalculateLastMap(double firstMap[735][504], double secondMap[735][504], double lastMap[735][504]){
+	
+	int resta = 0;
+	for (int i = 0; i < 735; i++) {
+		for (int j = 0; j < 504; j++) {
+			resta = firstMap[i][j] - secondMap[i][j];
+			resta = abs(resta);
+			if (resta > 8){
+				lastMap[i][j] = 0;
+			}
+			else{
+				lastMap[i][j] = resta;
+			}
+		}
+	}
+}
+
+void SustituirCeros(double lastMap[735][504]){
+	int aux = 0;
+	for (unsigned i = windowSize / 2; i < height - windowSize / 2; i++){
+		for (int j = windowSize / 2; j < width - windowSize / 2; j++){
+			if (lastMap[j][i] == 0){
+				aux = lastMap[j][i + 1] + lastMap[j][i - 1] + lastMap[j + 1][i] + lastMap[j - 1][i] + lastMap[j - 1][i - 1] + lastMap[j - 1][i + 1] + lastMap[j + 1][i - 1] + lastMap[j + 1][i + 1];
+				aux = aux / 8;
+				lastMap[j][i] = aux;
+			}
+		}
 	}
 }
