@@ -52,6 +52,14 @@ int main(int argc, char *argv[]){
 	int a = 0;
 }
 
+void MapToZero(unsigned char DispMap[735][504]) {
+	for (int i = 0; i < 735; i++) {
+		for (int j = 0; j < 504; j++) {
+			DispMap[i][j] = 0;
+		}
+	}
+}
+
 
 void reduceTheMatrix(vector<unsigned char> imagen, unsigned char reducematrix[735][504]){
 
@@ -77,7 +85,7 @@ void project(unsigned char im0[735][504], unsigned char im1[735][504]){
 	int vector0[windowSize * windowSize]; //Guarda los datos de la ventana de la primera imagen
 	int vector1[windowSize * windowSize]; //Guarda los datos de la ventana de la segunda imagen
 	unsigned average0, average1; //Calcular medias
-	double desTipica0 = 0, desTipica1 = 0; //Calcular desviaciones típicas
+	double desTipica0 = 0, desTipica1 = 0; //Calcular desviaciones tÃ­picas
 	double covarianza = 0; // Calcular covarianza
 
 	for (unsigned i = windowSize / 2; i < height - windowSize / 2; i++){  //RECORRER IMAGEN
@@ -146,7 +154,7 @@ void operations(int j, int i, int vector0[windowSize*windowSize], unsigned char 
 			}
 			covarianza = covarianza / pow(windowSize, 2);
 
-			correlation = covarianza / (desTipica0 * desTipica1); // CORRELACIÓN
+			correlation = covarianza / (desTipica0 * desTipica1); // CORRELACIÃ“N
 
 			// WE ARE GOING TO COMPARING ONE WINDOW IN THE IMG0 WITH 260 WINDOWS IN THE IMG1 AND WE TAKE THE BIGGEST ONE 
 			// WHICH IT IS THE BIGGEST DISPARITY
