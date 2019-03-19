@@ -120,7 +120,7 @@ void ZNCC(unsigned char im0[735][504], unsigned char im1[735][504], double DisMa
 			}
 			desTipica0 = sqrt(desTipica0 / pow(windowSize, 2));
 
-			DisMap[j][i] = operations(j, i, vector0, im1, average0, desTipica0);							
+			DisMap[j][i] = operations(windowSize / 2, windowSize / 2, vector0, im1, average0, desTipica0);							
 
 		}
 	}
