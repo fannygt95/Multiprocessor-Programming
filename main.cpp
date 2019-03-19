@@ -95,9 +95,8 @@ void ZNCC(unsigned char im0[735][504], unsigned char im1[735][504], double DisMa
 	int count0 = 0, count1 = 0;  //Contador para la suma de los datos de las ventanas
 	int vector0[windowSize * windowSize]; //Guarda los datos de la ventana de la primera imagen
 	int vector1[windowSize * windowSize]; //Guarda los datos de la ventana de la segunda imagen
-	unsigned average0, average1; //Calcular medias
-	double desTipica0 = 0, desTipica1 = 0; //Calcular desviaciones típicas
-	double covarianza = 0; // Calcular covarianza
+	unsigned average0; //Calcular medias
+	double desTipica0 = 0; //Calcular desviaciones tÃ­pica
 
 	for (unsigned i = windowSize / 2; i < height - windowSize / 2; i++){  //RECORRER IMAGEN
 		for (int j = windowSize / 2; j < width - windowSize / 2; j++){
@@ -114,6 +113,7 @@ void ZNCC(unsigned char im0[735][504], unsigned char im1[735][504], double DisMa
 			}
 			average0 = count0 / pow(windowSize,2); //Media ventana imagen0
 			int aux0 = 0;
+			desTipica0 = 0;
 			for (m = 0; m < sizeof(vector0) / sizeof(*vector0); m++){//RECORRER OTRA VEZ VENTANA IMAGEN 0, esta vez usamos el vector
 				aux0 = vector0[m] - average0;
 				desTipica0 = desTipica0 + pow(aux0, 2);
@@ -165,7 +165,7 @@ double operations(int j, int i, int vector0[windowSize*windowSize], unsigned cha
 			}
 			covarianza = covarianza / pow(windowSize, 2);
 
-			correlation = covarianza / (desTipica0 * desTipica1); // CORRELACIÓN
+			correlation = covarianza / (desTipica0 * desTipica1); // CORRELACIÃ“N
 			// WE ARE GOING TO COMPARING ONE WINDOW IN THE IMG0 WITH 260 WINDOWS IN THE IMG1 AND WE TAKE THE BIGGEST ONE 
 			// WHICH IT IS THE BIGGEST DISPARITY
 			
