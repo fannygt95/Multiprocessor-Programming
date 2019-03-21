@@ -1,11 +1,14 @@
 #include "lodepng.h"
+
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
 
 using namespace std;
-unsigned width, height;;
+
+unsigned width, height;
+unsigned average = 0;
 int const disparity = 260;
 const int windowSize = 9;
 double correlation = 0;
@@ -35,7 +38,7 @@ void MapToVector(double[504][735], vector<unsigned char>& vector);
 void encodeOneStep(const char* filename, vector<unsigned char>& image, unsigned width, unsigned height);
 
 int main(int argc, char *argv[]){
-	//GETING THE PIXELS FROM THE FIRST IMAGE
+	////////////////////////////////// GETING THE PIXELS FROM THE FIRST IMAGE ///////////////////////////////////////////////
 	const char* filename0 = argc > 1 ? argv[1] : "im0.png";
 	//load and decode
 	std::vector<unsigned char> image0;
@@ -45,7 +48,7 @@ int main(int argc, char *argv[]){
 	//the pixels are now in the vector "image", 4 bytes per pixel, ordered RGBARGBA..., use it as texture, draw it, ...
 
 
-	//GETING THE PIXELS FROM THE SECOND IMAGE 
+	///////////////////////////////// GETING THE PIXELS FROM THE SECOND IMAGE ///////////////////////////////////////////////
 	const char* filename1 = argc > 1 ? argv[1] : "im1.png";
 	//load and decode
 	std::vector<unsigned char> image1;
@@ -92,8 +95,8 @@ void ZNCC(unsigned char im0[504][735], unsigned char im1[504][735], double DisMa
 	double desTipica0 = 0, desTipica1 = 0; //Calcular desviaciones típicas
 	double covarianza = 0; // Calcular covarianza
 
-	for (int i = windowSize / 2; i < height + 1 - windowSize / 2; i++){  //RECORRER IMAGEN
-		for (int j = windowSize / 2; j < width + 1 - windowSize / 2; j++){
+	for (int i = windowSize / 2; i < height - windowSize + 1/ 2; i++){  //RECORRER IMAGEN
+		for (int j = windowSize / 2; j < width - windowSize + 1 / 2; j++){
 
 			int m = 0;
 			count0 = 0;
@@ -127,12 +130,11 @@ double operations(int hei, int wid, int vector0[windowSize*windowSize], unsigned
 	int vector1[windowSize * windowSize];
 	int h = wid;
 	int g = hei;
-	int count1;
 	int countDisparity = 0;
 	biggestCorrelation = 0;
-	while (g < height - windowSize / 2 + 1 && countDisparity < disparity){
-		while (h < width - windowSize / 2 + 1 && countDisparity < disparity){
-			count1 = 0;
+	while (g < height - windowSize + 1/ 2 && countDisparity < disparity){
+		while (h < width - windowSize + 1/ 2 && countDisparity < disparity){
+			int count1 = 0;
 			int n = 0;
 			for (int win_y = g - windowSize / 2; win_y < g + 1 + windowSize / 2; win_y++){ //CONTADOR DE LOS DATOS VENTANA IMAGEN 1
 				for (int win_x = h - windowSize / 2; win_x < h + 1 + windowSize / 2; win_x++){
@@ -186,8 +188,8 @@ double operations(int hei, int wid, int vector0[windowSize*windowSize], unsigned
 void CalculateLastMap(double firstMap[504][735], double secondMap[504][735], double lastMap[504][735]){
 	
 	int resta = 0;
-	for (int i = windowSize / 2; i < width - windowSize / 2 + 1; i++) {
-		for (int j = windowSize / 2; j < height - windowSize / 2 + 1; j++) {
+	for (int i = 4; i < 504 - 4 + 1; i++) {
+		for (int j = 4; j < 735 - 4  + 1; j++) {
 			resta = firstMap[i][j] - secondMap[i][j];
 			resta = abs(resta);
 			if (resta > 8){
