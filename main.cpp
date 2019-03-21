@@ -1,12 +1,10 @@
 #include "lodepng.h"
-
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
 
 using namespace std;
-
 unsigned width, height;
 unsigned average = 0;
 int const disparity = 260;
@@ -14,15 +12,15 @@ const int windowSize = 9;
 double correlation = 0;
 double biggestCorrelation = 0;
 
-
+// IMAGENES REDUCIDAS
 unsigned char reduceim0[504][735];
 unsigned char reduceim1[504][735];
 
-// MAPAS DE DISPARIDAD //
+// MAPAS DE DISPARIDAD
 double IzqDer[504][735];
 double DerIzq[504][735];
 
-// MAPA FINAL//
+// MAPA FINAL
 double FinalMap[504][735];
 
 // MAPA FINAL EN UN VECTOR
