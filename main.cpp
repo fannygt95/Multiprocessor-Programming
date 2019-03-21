@@ -28,7 +28,7 @@ vector<unsigned char>FinalVector(361816);
 
 void reduceTheMatrix(vector<unsigned char> imagen, unsigned char reducematrix[504][735]);
 void ZNCC(unsigned char im0[504][735], unsigned char im1[504][735], double DisMap[504][735]);
-double operations(int j, int i, int vector0[windowSize*windowSize], unsigned char im1[504][735], int average0, int desTipica0);
+double operations(int j, int i, int vector0[windowSize*windowSize], unsigned char im1[504][735], int average0, double desTipica0);
 void MapToZero(double DispMap[504][735]);
 void CalculateLastMap(double firstMap[504][735], double secondMap[504][735], double lastMap[504][735]);
 void SustituirCeros(double lastMap[504][735]);
@@ -123,7 +123,7 @@ void ZNCC(unsigned char im0[504][735], unsigned char im1[504][735], double DisMa
 
 }
 
-double operations(int hei, int wid, int vector0[windowSize*windowSize], unsigned char im1[504][735], int average0, int desTipica0){
+double operations(int hei, int wid, int vector0[windowSize*windowSize], unsigned char im1[504][735], int average0, double desTipica0){
 
 	int vector1[windowSize * windowSize];
 	int h = wid;
