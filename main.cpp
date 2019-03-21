@@ -95,8 +95,8 @@ void ZNCC(unsigned char im0[504][735], unsigned char im1[504][735], double DisMa
 	double desTipica0 = 0, desTipica1 = 0; //Calcular desviaciones típicas
 	double covarianza = 0; // Calcular covarianza
 
-	for (int i = windowSize / 2; i < height - windowSize + 1/ 2; i++){  //RECORRER IMAGEN
-		for (int j = windowSize / 2; j < width - windowSize + 1 / 2; j++){
+	for (int i = windowSize / 2; i < height - (windowSize / 2) +1; i++){  //RECORRER IMAGEN
+		for (int j = windowSize / 2; j < width - (windowSize / 2) +1; j++){
 
 			int m = 0;
 			count0 = 0;
@@ -132,8 +132,8 @@ double operations(int hei, int wid, int vector0[windowSize*windowSize], unsigned
 	int g = hei;
 	int countDisparity = 0;
 	biggestCorrelation = 0;
-	while (g < height - windowSize + 1/ 2 && countDisparity < disparity){
-		while (h < width - windowSize + 1/ 2 && countDisparity < disparity){
+	while (g < height - (windowSize / 2) +1 && countDisparity < disparity){
+		while (h < width - (windowSize/ 2) + 1 && countDisparity < disparity){
 			int count1 = 0;
 			int n = 0;
 			for (int win_y = g - windowSize / 2; win_y < g + 1 + windowSize / 2; win_y++){ //CONTADOR DE LOS DATOS VENTANA IMAGEN 1
@@ -188,8 +188,8 @@ double operations(int hei, int wid, int vector0[windowSize*windowSize], unsigned
 void CalculateLastMap(double firstMap[504][735], double secondMap[504][735], double lastMap[504][735]){
 	
 	int resta = 0;
-	for (int i = 4; i < 504 - 4 + 1; i++) {
-		for (int j = 4; j < 735 - 4  + 1; j++) {
+	for (int i = (windowSize/ 2); i < 504 - (windowSize/ 2) + 1; i++) {
+		for (int j = (windowSize/ 2); j < 735 - (windowSize/ 2) + 1; j++) {
 			resta = firstMap[i][j] - secondMap[i][j];
 			resta = abs(resta);
 			if (resta > 8){
