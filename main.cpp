@@ -39,7 +39,6 @@ void getTheImagenInAVector(const char* filename, vector<unsigned char> &image);
 void ReduceGrayMatrix(vector<unsigned char> imagen, vector<vector<unsigned char>>&reducematrix);
 void ZNCC(vector<vector<unsigned char>> im0, vector<vector<unsigned char>>im1, vector<vector<unsigned char>>&DisMap);
 unsigned char operations(int j, int i, double vector0[windowSize*windowSize], vector<vector<unsigned char>> im1, int average0, double desTipica0);
-void MapToZero(unsigned char DispMap[504][735]);
 void CalculateLastMap(vector<vector<unsigned char>>firstMap, vector<vector<unsigned char>>secondMap, vector<vector<unsigned char>>&lastMap);
 void SustituirCeros(vector<vector<unsigned char>>&lastMap);
 void MapToVector(vector<vector<unsigned char>>Map, vector<unsigned char>&vector);
@@ -56,47 +55,17 @@ int main(int argc, char *argv[]){
 
 	const char* save_left = "grayscale_left.png";
 	const char* save_right = "dgrayscale_right.png";
-/*
-	vector<unsigned char>cristinita(40);
-	double amaia[5][8];
-	double marco = 2.5;
-	double natalia = 0;
-	for (int alvaro = 0; alvaro < 5; alvaro++){
-		for (int ixaka = 0; ixaka < 8; ixaka++){
-			amaia[alvaro][ixaka] = marco + natalia;
-			cout << amaia[alvaro][ixaka] << " ";
-			natalia++;
-		}
-		cout << "\n";
-	}
-	int raquel = 0;
-	for (int paula = 0; paula < 4; paula++){
-		for (int rosa = 0; rosa < 4; rosa++){
-			cristinita[raquel] = amaia[paula][rosa];
-			raquel++;
-		}
-	}
-	encodeOneStep(".\\images\\out.png", cristinita, 5, 8);
-*/
 
 
 	getTheImagenInAVector(filename0, image0);
-	//getTheImagenInAVector(filename1, image1);
+	getTheImagenInAVector(filename1, image1);
 
 	ReduceGrayMatrix(image0, reduceim0);
-
-	MapToVector(reduceim0, aux);
-
+	ReduceGrayMatrix(image1, reduceim1);
 	
-	lodepng::encode("DisparityMap.png", aux, width, height, LCT_GREY, 8);
-
-	//ReduceGrayMatrix(image1, reduceim1);
-	/*
 	image0.clear(); image0.shrink_to_fit();
 	image1.clear(); image1.shrink_to_fit();
 
-	//MapToZero(IzqDer);
-	//MapToZero(DerIzq);
 	ZNCC(reduceim0, reduceim1, IzqDer);
 	ZNCC(reduceim1, reduceim0, DerIzq);
 
@@ -108,8 +77,7 @@ int main(int argc, char *argv[]){
 	MapToVector(FinalMap, FinalVector);
 
 	//IMPRIMIR FOTOGRAFIA	
-	lodepng::encode(".\\DisparityMap.png", FinalVector, width, height);
-	*/
+	lodepng::encode("DisparityMap.png", FinalVector, width, height, LCT_GREY, 8);
 }
 
 void getTheImagenInAVector(const char* filename, vector<unsigned char> &image){
@@ -248,32 +216,27 @@ unsigned char operations(int hei, int wid, double vector0[windowSize*windowSize]
 	return biggestCorrelation;
 }
 
-/*void MapToZero(double DispMap[735][504]) {
-	for (int i = 0; i < 735; i++) {
-		for (int j = 0; j < 504; j++) {
-			DispMap[i][j] = 0;
-		}
-	}
-}
-*/
+
 
 void CalculateLastMap(vector<vector<unsigned char>> firstMap, vector<vector<unsigned char>> secondMap, vector<vector<unsigned char>>&lastMap){
 	
-	int resta = 0;
+	vector <unsigned char> aux;
+	unsigned char resta = 0;
 	for (int i = 4; i < 504 + 1 + windowSize / 2; i++) {
 		for (int j = 4; j < 735 + 1 + windowSize / 2; j++) {
-			cout << "1. " << IzqDer[i][j] << " 2. " << DerIzq[i][j] << "\n";
-			cout << "1. " << firstMap[i][j] << " 2. " << secondMap[i][j]  << "\n";
-
+			
 			resta = firstMap[i][j] - secondMap[i][j];
 			resta = abs(resta);
+
 			if (resta > 8){
-				lastMap[i][j] = 0;
+				aux.push_back(0);
 			}
 			else{
-				lastMap[i][j] = resta;
+				aux.push_back(resta);
 			}
 		}
+		lastMap.push_back(aux);
+		aux.erase(aux.begin(), aux.end());
 	}
 }
 
