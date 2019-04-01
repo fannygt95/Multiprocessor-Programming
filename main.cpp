@@ -125,22 +125,31 @@ void getTheImagenInAVector(const char* filename, vector<unsigned char> &image){
 void ReduceGrayMatrix(vector<unsigned char> imagen, vector<vector<unsigned char>>&reduceimagen){
 	vector <unsigned char> auxvector;
 	unsigned char aux;
-	width = width / 4; height = height / 4;
+	vector<vector<unsigned char>> auxImagen;
 	int R = 0, G = 1, B = 2;
-	for (int i = 0; i < height; i+=4){
+
+	for (int i = 0; i < height; i++){
 		for (int x = 0; x < width; x++){
 			aux = imagen[R] * 0.2126 + imagen[G] * 0.7152 + imagen[B] * 0.0722;
 			if (x + i * width < imagen.size()){
 				auxvector.push_back(aux);
 			}
-			R = R + 16;
-			G = G + 16;
-			B = B + 16;
+			R = R + 4;
+			G = G + 4;
+			B = B + 4;
+		}
+		auxImagen.push_back(auxvector);
+		auxvector.erase(auxvector.begin(), auxvector.end());
+	}
+
+	for (int i = 0; i < height; i+=4){
+		for (int x = 0; x < width; x+=4){
+			auxvector.push_back(auxImagen[i][x]);
 		}
 		reduceimagen.push_back(auxvector);
 		auxvector.erase(auxvector.begin(), auxvector.end());
-
 	}
+	width = width / 4; height = height / 4;	
 }
 
 void ZNCC(vector<vector<unsigned char>> im0, vector<vector<unsigned char>> im1, vector<vector<unsigned char>>&DisMap){
@@ -148,7 +157,7 @@ void ZNCC(vector<vector<unsigned char>> im0, vector<vector<unsigned char>> im1, 
 	double vector0[windowSize * windowSize]; //Guarda los datos de la ventana de la primera imagen
 	double vector1[windowSize * windowSize]; //Guarda los datos de la ventana de la segunda imagen
 	unsigned average0, average1; //Calcular medias
-	double desTipica0 = 0, desTipica1 = 0; //Calcular desviaciones típicas
+	double desTipica0 = 0, desTipica1 = 0; //Calcular desviaciones tÃ­picas
 	double covarianza = 0; // Calcular covarianza
 
 	unsigned aux;
@@ -224,7 +233,7 @@ unsigned char operations(int hei, int wid, double vector0[windowSize*windowSize]
 			}
 			covarianza = covarianza / (pow(windowSize, 2));
 
-			correlation = covarianza / (desTipica0 * desTipica1); // CORRELACIÓN
+			correlation = covarianza / (desTipica0 * desTipica1); // CORRELACIÃ“N
 			// WE ARE GOING TO COMPARING ONE WINDOW IN THE IMG0 WITH 260 WINDOWS IN THE IMG1 AND WE TAKE THE BIGGEST ONE 
 			// WHICH IT IS THE BIGGEST DISPARITY
 			
