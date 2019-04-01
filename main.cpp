@@ -62,6 +62,9 @@ int main(int argc, char *argv[]){
 
 	ReduceGrayMatrix(image0, reduceim0);
 	ReduceGrayMatrix(image1, reduceim1);
+
+	width = width / 4; 
+	height = height / 4;
 	
 	image0.clear(); image0.shrink_to_fit();
 	image1.clear(); image1.shrink_to_fit();
@@ -117,28 +120,28 @@ void ReduceGrayMatrix(vector<unsigned char> imagen, vector<vector<unsigned char>
 		reduceimagen.push_back(auxvector);
 		auxvector.erase(auxvector.begin(), auxvector.end());
 	}
-	width = width / 4; height = height / 4;	
+		
 }
 
 void ZNCC(vector<vector<unsigned char>> im0, vector<vector<unsigned char>> im1, vector<vector<unsigned char>>&DisMap){
-	double count0 = 0, count1 = 0;  //Contador para la suma de los datos de las ventanas
+	int count0 = 0;  //Contador para la suma de los datos de las ventanas
 	double vector0[windowSize * windowSize]; //Guarda los datos de la ventana de la primera imagen
 	double vector1[windowSize * windowSize]; //Guarda los datos de la ventana de la segunda imagen
-	unsigned average0, average1; //Calcular medias
+	double average0, average1; //Calcular medias
 	double desTipica0 = 0, desTipica1 = 0; //Calcular desviaciones típicas
 	double covarianza = 0; // Calcular covarianza
 
-	unsigned aux;
+	unsigned char aux;
 	vector<unsigned char> vectorAux;
 
-	for (int i = windowSize / 2; i < height + 1 - windowSize / 2; i++){  //RECORRER IMAGEN
-		for (int j = windowSize / 2; j < width + 1 - windowSize / 2; j++){
+	for (int i = windowSize / 2; i < height - windowSize / 2; i++){  //RECORRER IMAGEN
+		for (int j = windowSize / 2; j < width - windowSize / 2; j++){
 
 			int m = 0;
 			count0 = 0;
 			average = 0;
-			for (int y = i - windowSize / 2; y < i + 1 + windowSize / 2; y++) {// RECORRER VENTANA IMAGEN 0
-				for (int x = j - windowSize / 2; x < j + 1 + windowSize / 2; x++) {
+			for (int y = i - windowSize / 2; y < i + windowSize / 2; y++) {// RECORRER VENTANA IMAGEN 0
+				for (int x = j - windowSize / 2; x < j + windowSize / 2; x++) {
 				
 					count0 = count0 + im0[y][x]; //Sumatorio datos ventana imagen 0
 					vector0[m] = im0[y][x]; //Guardar datos
@@ -171,9 +174,10 @@ unsigned char operations(int hei, int wid, double vector0[windowSize*windowSize]
 	int h = wid;
 	int g = hei;
 	int countDisparity = 0;
-	biggestCorrelation = 0;
-	while (g < height - windowSize + 1/ 2 && countDisparity < disparity){
-		while (h < width - windowSize + 1/ 2 && countDisparity < disparity){
+	unsigned char ValorMatriz = 0;
+	double biggestCorrelation = 0;
+	while (g < height - windowSize / 2 && countDisparity < disparity){
+		while (h < width - windowSize / 2 && countDisparity < disparity){
 			int count1 = 0;
 			int n = 0;
 			for (int win_y = g - windowSize / 2; win_y < g + 1 + windowSize / 2; win_y++){ //CONTADOR DE LOS DATOS VENTANA IMAGEN 1
@@ -201,19 +205,20 @@ unsigned char operations(int hei, int wid, double vector0[windowSize*windowSize]
 			}
 			covarianza = covarianza / (pow(windowSize, 2));
 
-			correlation = covarianza / (desTipica0 * desTipica1); // CORRELACIÓN
+			double correlation = covarianza / (desTipica0 * desTipica1); // CORRELACIÓN
 			// WE ARE GOING TO COMPARING ONE WINDOW IN THE IMG0 WITH 260 WINDOWS IN THE IMG1 AND WE TAKE THE BIGGEST ONE 
 			// WHICH IT IS THE BIGGEST DISPARITY
 			
 			if (correlation > biggestCorrelation){
-				biggestCorrelation = correlation;				
+				biggestCorrelation = correlation;	
+				ValorMatriz = countDisparity;
 			}
 			countDisparity++;
 			h++;
 		}
 		g++;
 	}
-	return biggestCorrelation;
+	return ValorMatriz;
 }
 
 
