@@ -1,100 +1,161 @@
 #include "lodepng.h"
+
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <sstream> 
+#include <vector>
+#include <chrono>
+#include <cmath>
+#include <fstream>
+#include <string>
 
 using namespace std;
+
 unsigned width, height;
 unsigned average = 0;
-int const disparity = 260;
+int const disparity = 65;
 const int windowSize = 9;
 double correlation = 0;
-double biggestCorrelation = 0;
+unsigned char biggestCorrelation;
 
-// IMAGENES REDUCIDAS
-unsigned char reduceim0[504][735];
-unsigned char reduceim1[504][735];
 
-// MAPAS DE DISPARIDAD
-double IzqDer[504][735];
-double DerIzq[504][735];
+vector<vector<unsigned char>> reduceim0;
+vector<vector<unsigned char>> reduceim1;
 
-// MAPA FINAL
-double FinalMap[504][735];
+// MAPAS DE DISPARIDAD //
+vector<vector<unsigned char>> IzqDer;
+vector<vector<unsigned char>> DerIzq;
+
+// MAPA FINAL//
+vector<vector<unsigned char>> FinalMap;
 
 // MAPA FINAL EN UN VECTOR
-vector<unsigned char>FinalVector(361816);
+vector<unsigned char>FinalVector;
 
-void reduceTheMatrix(vector<unsigned char> imagen, unsigned char reducematrix[504][735]);
-void ZNCC(unsigned char im0[504][735], unsigned char im1[504][735], double DisMap[504][735]);
-double operations(int j, int i, int vector0[windowSize*windowSize], unsigned char im1[504][735], int average0, double desTipica0);
-void MapToZero(double DispMap[504][735]);
-void CalculateLastMap(double firstMap[504][735], double secondMap[504][735], double lastMap[504][735]);
-void SustituirCeros(double lastMap[504][735]);
-void MapToVector(double[504][735], vector<unsigned char>& vector);
-void encodeOneStep(const char* filename, vector<unsigned char>& image, unsigned width, unsigned height);
+
+void getTheImagenInAVector(const char* filename, vector<unsigned char> &image);
+void ReduceGrayMatrix(vector<unsigned char> imagen, vector<vector<unsigned char>>&reducematrix);
+void ZNCC(vector<vector<unsigned char>> im0, vector<vector<unsigned char>>im1, vector<vector<unsigned char>>&DisMap);
+unsigned char operations(int j, int i, double vector0[windowSize*windowSize], vector<vector<unsigned char>> im1, int average0, double desTipica0);
+void MapToZero(unsigned char DispMap[504][735]);
+void CalculateLastMap(vector<vector<unsigned char>>firstMap, vector<vector<unsigned char>>secondMap, vector<vector<unsigned char>>&lastMap);
+void SustituirCeros(vector<vector<unsigned char>>&lastMap);
+void MapToVector(vector<vector<unsigned char>>Map, vector<unsigned char>&vector);
 
 int main(int argc, char *argv[]){
-	////////////////////////////////// GETING THE PIXELS FROM THE FIRST IMAGE ///////////////////////////////////////////////
+
+	vector<unsigned char> image0;
+	vector<unsigned char> image1;
+
+	vector<unsigned char> aux;
+
 	const char* filename0 = argc > 1 ? argv[1] : "im0.png";
-	//load and decode
-	std::vector<unsigned char> image0;
-	unsigned error0 = lodepng::decode(image0, width, height, filename0);
+	const char* filename1 = argc > 1 ? argv[1] : "im1.png";
+
+	const char* save_left = "grayscale_left.png";
+	const char* save_right = "dgrayscale_right.png";
+/*
+	vector<unsigned char>cristinita(40);
+	double amaia[5][8];
+	double marco = 2.5;
+	double natalia = 0;
+	for (int alvaro = 0; alvaro < 5; alvaro++){
+		for (int ixaka = 0; ixaka < 8; ixaka++){
+			amaia[alvaro][ixaka] = marco + natalia;
+			cout << amaia[alvaro][ixaka] << " ";
+			natalia++;
+		}
+		cout << "\n";
+	}
+	int raquel = 0;
+	for (int paula = 0; paula < 4; paula++){
+		for (int rosa = 0; rosa < 4; rosa++){
+			cristinita[raquel] = amaia[paula][rosa];
+			raquel++;
+		}
+	}
+	encodeOneStep(".\\images\\out.png", cristinita, 5, 8);
+*/
+
+
+	getTheImagenInAVector(filename0, image0);
+	//getTheImagenInAVector(filename1, image1);
+
+	ReduceGrayMatrix(image0, reduceim0);
+
+	MapToVector(reduceim0, aux);
+
+	
+	lodepng::encode("DisparityMap.png", aux, width, height, LCT_GREY, 8);
+
+	//ReduceGrayMatrix(image1, reduceim1);
+	/*
+	image0.clear(); image0.shrink_to_fit();
+	image1.clear(); image1.shrink_to_fit();
+
+	//MapToZero(IzqDer);
+	//MapToZero(DerIzq);
+	ZNCC(reduceim0, reduceim1, IzqDer);
+	ZNCC(reduceim1, reduceim0, DerIzq);
+
+	reduceim0.clear(); reduceim0.shrink_to_fit();
+	reduceim1.clear(); reduceim1.shrink_to_fit();
+
+	CalculateLastMap(IzqDer, DerIzq, FinalMap);
+	SustituirCeros(FinalMap);
+	MapToVector(FinalMap, FinalVector);
+
+	//IMPRIMIR FOTOGRAFIA	
+	lodepng::encode(".\\DisparityMap.png", FinalVector, width, height);
+	*/
+}
+
+void getTheImagenInAVector(const char* filename, vector<unsigned char> &image){
+
+	unsigned error0 = lodepng::decode(image, width, height, filename);
 	//if there's an error, display it
 	if (error0) std::cout << "decoder error " << error0 << ": " << lodepng_error_text(error0) << std::endl;
 	//the pixels are now in the vector "image", 4 bytes per pixel, ordered RGBARGBA..., use it as texture, draw it, ...
 
 
-	///////////////////////////////// GETING THE PIXELS FROM THE SECOND IMAGE ///////////////////////////////////////////////
-	const char* filename1 = argc > 1 ? argv[1] : "im1.png";
-	//load and decode
-	std::vector<unsigned char> image1;
-	unsigned error1 = lodepng::decode(image1, width, height, filename1);
-	//if there's an error, display it
-	if (error1) std::cout << "decoder error " << error1 << ": " << lodepng_error_text(error1) << std::endl;
-	//the pixels are now in the vector "image", 4 bytes per pixel, ordered RGBARGBA..., use it as texture, draw it, ...
-
-
-	reduceTheMatrix(image0, reduceim0);
-	reduceTheMatrix(image1, reduceim1);
-	//MapToZero(IzqDer);
-	//MapToZero(DerIzq);
-	ZNCC(reduceim0, reduceim1, IzqDer);
-	ZNCC(reduceim1, reduceim0, DerIzq);
-	CalculateLastMap(IzqDer, DerIzq, FinalMap);
-	SustituirCeros(FinalMap);
-	MapToVector(FinalMap, FinalVector);
-	//IMPRIMIR FOTOGRAFIA	
-	encodeOneStep(".\\images\\out.png", FinalVector, width, height);
-	
 }
 
-void reduceTheMatrix(vector<unsigned char> imagen, unsigned char reducematrix[504][735]){
-
-	width = 735; height = 504;
+void ReduceGrayMatrix(vector<unsigned char> imagen, vector<vector<unsigned char>>&reduceimagen){
+	vector <unsigned char> auxvector;
+	unsigned char aux;
+	width = width / 4; height = height / 4;
 	int R = 0, G = 1, B = 2;
-	for (int i = 0; i < height; i++){
+	for (int i = 0; i < height; i+=4){
 		for (int x = 0; x < width; x++){
-			reducematrix[i][x] = imagen[R] * 0.2126 + imagen[G] * 0.7152 + imagen[B] * 0.0722;
+			aux = imagen[R] * 0.2126 + imagen[G] * 0.7152 + imagen[B] * 0.0722;
+			if (x + i * width < imagen.size()){
+				auxvector.push_back(aux);
+			}
 			R = R + 16;
 			G = G + 16;
 			B = B + 16;
 		}
+		reduceimagen.push_back(auxvector);
+		auxvector.erase(auxvector.begin(), auxvector.end());
 
 	}
 }
 
-void ZNCC(unsigned char im0[504][735], unsigned char im1[504][735], double DisMap[504][735]){
-	int count0 = 0, count1 = 0;  //Contador para la suma de los datos de las ventanas
-	int vector0[windowSize * windowSize]; //Guarda los datos de la ventana de la primera imagen
-	int vector1[windowSize * windowSize]; //Guarda los datos de la ventana de la segunda imagen
+void ZNCC(vector<vector<unsigned char>> im0, vector<vector<unsigned char>> im1, vector<vector<unsigned char>>&DisMap){
+	double count0 = 0, count1 = 0;  //Contador para la suma de los datos de las ventanas
+	double vector0[windowSize * windowSize]; //Guarda los datos de la ventana de la primera imagen
+	double vector1[windowSize * windowSize]; //Guarda los datos de la ventana de la segunda imagen
 	unsigned average0, average1; //Calcular medias
-	double desTipica0 = 0, desTipica1 = 0; //Calcular desviaciones tÃ­picas
+	double desTipica0 = 0, desTipica1 = 0; //Calcular desviaciones típicas
 	double covarianza = 0; // Calcular covarianza
 
-	for (int i = windowSize / 2; i < height - (windowSize / 2) +1; i++){  //RECORRER IMAGEN
-		for (int j = windowSize / 2; j < width - (windowSize / 2) +1; j++){
+	unsigned aux;
+	vector<unsigned char> vectorAux;
+
+	for (int i = windowSize / 2; i < height + 1 - windowSize / 2; i++){  //RECORRER IMAGEN
+		for (int j = windowSize / 2; j < width + 1 - windowSize / 2; j++){
 
 			int m = 0;
 			count0 = 0;
@@ -108,7 +169,7 @@ void ZNCC(unsigned char im0[504][735], unsigned char im1[504][735], double DisMa
 				}
 			}
 			average0 = count0 / (pow(windowSize,2)); //Media ventana imagen0
-			int aux0 = 0;
+			int aux0 = 0;	
 			desTipica0 = 0;
 			for (m = 0; m < sizeof(vector0) / sizeof(*vector0); m++){//RECORRER OTRA VEZ VENTANA IMAGEN 0, esta vez usamos el vector
 				aux0 = vector0[m] - average0;
@@ -116,22 +177,26 @@ void ZNCC(unsigned char im0[504][735], unsigned char im1[504][735], double DisMa
 			}
 			desTipica0 = sqrt(desTipica0 / (pow(windowSize, 2)));
 
-			DisMap[i][j] = operations(i, j, vector0, im1, average0, desTipica0);							
-	//		cout << DisMap[i][j] << " ";
+			
+			aux = operations(i, j, vector0, im1, average0, desTipica0);
+			vectorAux.push_back(aux);
+			//cout << IzqDer[i][j] << " ";
 			}
+		DisMap.push_back(vectorAux);
+		vectorAux.erase(vectorAux.begin(), vectorAux.end());
 	}
 
 }
 
-double operations(int hei, int wid, int vector0[windowSize*windowSize], unsigned char im1[504][735], int average0, double desTipica0){
+unsigned char operations(int hei, int wid, double vector0[windowSize*windowSize], vector<vector<unsigned char>> im1, int average0, double desTipica0){
 
 	int vector1[windowSize * windowSize];
 	int h = wid;
 	int g = hei;
 	int countDisparity = 0;
 	biggestCorrelation = 0;
-	while (g < height - (windowSize / 2) +1 && countDisparity < disparity){
-		while (h < width - (windowSize/ 2) + 1 && countDisparity < disparity){
+	while (g < height - windowSize + 1/ 2 && countDisparity < disparity){
+		while (h < width - windowSize + 1/ 2 && countDisparity < disparity){
 			int count1 = 0;
 			int n = 0;
 			for (int win_y = g - windowSize / 2; win_y < g + 1 + windowSize / 2; win_y++){ //CONTADOR DE LOS DATOS VENTANA IMAGEN 1
@@ -159,7 +224,7 @@ double operations(int hei, int wid, int vector0[windowSize*windowSize], unsigned
 			}
 			covarianza = covarianza / (pow(windowSize, 2));
 
-			correlation = covarianza / (desTipica0 * desTipica1); // CORRELACIÃ“N
+			correlation = covarianza / (desTipica0 * desTipica1); // CORRELACIÓN
 			// WE ARE GOING TO COMPARING ONE WINDOW IN THE IMG0 WITH 260 WINDOWS IN THE IMG1 AND WE TAKE THE BIGGEST ONE 
 			// WHICH IT IS THE BIGGEST DISPARITY
 			
@@ -183,11 +248,14 @@ double operations(int hei, int wid, int vector0[windowSize*windowSize], unsigned
 }
 */
 
-void CalculateLastMap(double firstMap[504][735], double secondMap[504][735], double lastMap[504][735]){
+void CalculateLastMap(vector<vector<unsigned char>> firstMap, vector<vector<unsigned char>> secondMap, vector<vector<unsigned char>>&lastMap){
 	
 	int resta = 0;
-	for (int i = (windowSize/ 2); i < 504 - (windowSize/ 2) + 1; i++) {
-		for (int j = (windowSize/ 2); j < 735 - (windowSize/ 2) + 1; j++) {
+	for (int i = 4; i < 504 + 1 + windowSize / 2; i++) {
+		for (int j = 4; j < 735 + 1 + windowSize / 2; j++) {
+			cout << "1. " << IzqDer[i][j] << " 2. " << DerIzq[i][j] << "\n";
+			cout << "1. " << firstMap[i][j] << " 2. " << secondMap[i][j]  << "\n";
+
 			resta = firstMap[i][j] - secondMap[i][j];
 			resta = abs(resta);
 			if (resta > 8){
@@ -200,7 +268,7 @@ void CalculateLastMap(double firstMap[504][735], double secondMap[504][735], dou
 	}
 }
 
-void SustituirCeros(double lastMap[504][735]){
+void SustituirCeros(vector<vector<unsigned char>>&lastMap){
 	int aux = 0;
 	for (int i = windowSize / 2; i < height + 1 - windowSize / 2; i++){
 		for (int j = windowSize / 2; j < width + 1 - windowSize / 2; j++){
@@ -215,20 +283,16 @@ void SustituirCeros(double lastMap[504][735]){
 	}
 }
 
-void MapToVector(double Map[504][735], vector<unsigned char>& vector){
-	int n = 0;
-	for (int i = windowSize / 2; i < height + 1 - windowSize / 2; i++){
-		for (int j = windowSize / 2; j < width + 1 - windowSize / 2; j++){
-			vector[n] = Map[i][j];
-			n++;
+void MapToVector(vector<vector<unsigned char>> Map, vector<unsigned char> &vector){
+	
+	//int n = 0;
+	//char *vector = (char*)malloc(sizeof (char));
+	for (int i = 0; i < height; i++){
+		for (int j = 0; j < width; j++){
+			vector.push_back(Map[i][j]); 
+			//cout << vector[n] << " ";
+			//n++;
 		}
 	}
 }
 
-void encodeOneStep(const char* filename, vector<unsigned char>& image, unsigned width, unsigned height) {
-	//Encode the image
-	unsigned error = lodepng::encode(filename, image, width, height);
-
-	//if there's an error, display it
-	if (error) std::cout << "encoder error " << error << ": " << lodepng_error_text(error) << std::endl;
-}
