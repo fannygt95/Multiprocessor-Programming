@@ -53,10 +53,6 @@ int main(int argc, char *argv[]){
 	const char* filename0 = argc > 1 ? argv[1] : "im0.png";
 	const char* filename1 = argc > 1 ? argv[1] : "im1.png";
 
-	const char* save_left = "grayscale_left.png";
-	const char* save_right = "dgrayscale_right.png";
-
-
 	getTheImagenInAVector(filename0, image0);
 	getTheImagenInAVector(filename1, image1);
 
