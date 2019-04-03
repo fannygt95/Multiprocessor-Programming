@@ -37,8 +37,8 @@ vector<unsigned char>FinalVector;
 
 void getTheImagenInAVector(const char* filename, vector<unsigned char> &image);
 void ReduceGrayMatrix(vector<unsigned char> imagen, vector<vector<unsigned char>>&reducematrix);
-void ZNCC(vector<vector<unsigned char>> im0, vector<vector<unsigned char>>im1, vector<vector<unsigned char>>&DisMap, char time);
-unsigned char operations(int j, int i, double vector0[windowSize*windowSize], vector<vector<unsigned char>> im1, int average0, double desTipica0, char time);
+void ZNCC(vector<vector<unsigned char>> im0, vector<vector<unsigned char>>im1, vector<vector<unsigned char>>&DisMap, bool time);
+unsigned char operations(int j, int i, double vector0[windowSize*windowSize], vector<vector<unsigned char>> im1, int average0, double desTipica0, bool time);
 void CalculateLastMap(vector<vector<unsigned char>>firstMap, vector<vector<unsigned char>>secondMap, vector<vector<unsigned char>>&lastMap);
 void SustituirCeros(vector<vector<unsigned char>>&lastMap);
 void MapToVector(vector<vector<unsigned char>>Map, vector<unsigned char>&vector);
@@ -66,10 +66,11 @@ int main(int argc, char *argv[]){
 	image0.clear(); image0.shrink_to_fit();
 	image1.clear(); image1.shrink_to_fit();
 
-	bool time = "FirstZncc";
-	ZNCC(reduceim0, reduceim1, IzqDer, time);
-	time = "SecondZncc";
-	ZNCC(reduceim1, reduceim0, DerIzq, time);
+
+	bool FirstZncc = true;
+	ZNCC(reduceim0, reduceim1, IzqDer, FirstZncc);
+	FirstZncc = false;
+	ZNCC(reduceim1, reduceim0, DerIzq, FirstZncc);
 
 	reduceim0.clear(); reduceim0.shrink_to_fit();
 	reduceim1.clear(); reduceim1.shrink_to_fit();
@@ -122,7 +123,7 @@ void ReduceGrayMatrix(vector<unsigned char> imagen, vector<vector<unsigned char>
 		
 }
 
-void ZNCC(vector<vector<unsigned char>> im0, vector<vector<unsigned char>> im1, vector<vector<unsigned char>>&DisMap, char time){
+void ZNCC(vector<vector<unsigned char>> im0, vector<vector<unsigned char>> im1, vector<vector<unsigned char>>&DisMap, bool time){
 	int count0 = 0;  //Contador para la suma de los datos de las ventanas
 	double vector0[windowSize * windowSize]; //Guarda los datos de la ventana de la primera imagen
 	double vector1[windowSize * windowSize]; //Guarda los datos de la ventana de la segunda imagen
@@ -133,7 +134,7 @@ void ZNCC(vector<vector<unsigned char>> im0, vector<vector<unsigned char>> im1, 
 	unsigned char aux;
 	vector<unsigned char> vectorAux;
 	
-	if (time == *"firstTime") {
+	if (time == true) {
 		for (int i = windowSize / 2; i < height - windowSize / 2; i++) {  //RECORRER IMAGEN
 			for (int j = windowSize / 2; j < width - windowSize / 2; j++) {
 
@@ -200,8 +201,7 @@ void ZNCC(vector<vector<unsigned char>> im0, vector<vector<unsigned char>> im1, 
 
 	}
 
-
-unsigned char operations(int hei, int wid, double vector0[windowSize*windowSize], vector<vector<unsigned char>> im1, int average0, double desTipica0, char time){
+unsigned char operations(int hei, int wid, double vector0[windowSize*windowSize], vector<vector<unsigned char>> im1, int average0, double desTipica0, bool time){
 
 	
 	int vector1[windowSize * windowSize];
@@ -210,9 +210,8 @@ unsigned char operations(int hei, int wid, double vector0[windowSize*windowSize]
 	int countDisparity = 0;
 	unsigned char ValorMatriz = 0;
 	double biggestCorrelation = 0;
-	if (time == *"FirstZncc") {
-		while (g < height - (windowSize / 2)) {
-			while (h < width - (windowSize / 2) && countDisparity < disparity) {
+	if (time == true) {
+			while (h < width - windowSize / 2 && countDisparity < disparity) {
 				int count1 = 0;
 				int n = 0;
 				for (int win_y = g - (windowSize / 2); win_y < g + 1 + (windowSize / 2); win_y++) { //CONTADOR DE LOS DATOS VENTANA IMAGEN 1
@@ -251,13 +250,11 @@ unsigned char operations(int hei, int wid, double vector0[windowSize*windowSize]
 				countDisparity++;
 				h++;
 			}
-			g++;
-		}
+		
 	}
 	else {
 		countDisparity = 65;
-		while (g < height - (windowSize / 2)) {
-			while (h > 3 && 0 < countDisparity) {
+			while (0 < countDisparity) {
 				int count1 = 0;
 				int n = 0;
 				for (int win_y = g - (windowSize / 2); win_y < g + 1 + (windowSize / 2); win_y++) { //CONTADOR DE LOS DATOS VENTANA IMAGEN 1
@@ -296,30 +293,34 @@ unsigned char operations(int hei, int wid, double vector0[windowSize*windowSize]
 				countDisparity--;
 				h--;
 			}
-			g++;
-		}
+		
 	}
 	return ValorMatriz;
 }
-
-
 
 void CalculateLastMap(vector<vector<unsigned char>> firstMap, vector<vector<unsigned char>> secondMap, vector<vector<unsigned char>>&lastMap){
 	
 	vector <unsigned char> aux;
 	unsigned char resta = 0;
-	for (int i = 4; i < 504 + 1 + windowSize / 2; i++) {
-		for (int j = 4; j < 735 + 1 + windowSize / 2; j++) {
-			
-			resta = firstMap[i][j] - secondMap[i][j];
-			resta = abs(resta);
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			if ( i > 3 && i < 501 && 3 < j && j < 731){
+				
+				resta = firstMap[i][j] - secondMap[i][j];
+				resta = abs(resta);
 
-			if (resta > 8){
+				if (resta > 8) {
+					aux.push_back(0);
+				}
+				else {
+					aux.push_back(resta);
+				}
+
+			}
+			else {
 				aux.push_back(0);
 			}
-			else{
-				aux.push_back(resta);
-			}
+
 		}
 		lastMap.push_back(aux);
 		aux.erase(aux.begin(), aux.end());
