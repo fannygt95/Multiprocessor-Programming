@@ -84,8 +84,8 @@ int32_t main()
     // Check picture size error
     if(wL!=wR || hL!=hR) {
         printf("Error, the size of left and right images not match.\n");
-        free(OrigImageL);
-        free(OrigImageR);
+        free(image0);
+        free(image1);
         return -1;
     }
     new_width= wL/resizear;
@@ -121,7 +121,7 @@ int32_t main()
 
 
     // ******** Create buffers memory objects ********
-    cl_mem clmemImageL = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
+    cl_mem clmemImage0 = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
     if(status != CL_SUCCESS){
         fprintf(stderr, "Fail to create buffer for the left image !\n");
         abort();
@@ -172,13 +172,13 @@ int32_t main()
     cl_kernel cross_check_kernel= build_kernel_from_file(ctx, cross_check_kernel_file, "cross_check");
 
     // ******** Create images memory objects ********
-    cl_mem clmemOrigImageL = clCreateImage2D(ctx, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, &format, imgDescriptor.image_width, imgDescriptor.image_height, imgDescriptor.image_row_pitch, OrigImageL, &status);
+    cl_mem clmemimage0 = clCreateImage2D(ctx, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, &format, imgDescriptor.image_width, imgDescriptor.image_height, imgDescriptor.image_row_pitch, image0, &status);
     if(status != CL_SUCCESS){
         fprintf(stderr, "Fail to create Image for the left image !\n");
         abort();
     }
 
-    cl_mem clmemOrigImageR = clCreateImage2D(ctx, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, &format, imgDescriptor.image_width, imgDescriptor.image_height, imgDescriptor.image_row_pitch, OrigImageR, &status);
+    cl_mem clmemimage1 = clCreateImage2D(ctx, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, &format, imgDescriptor.image_width, imgDescriptor.image_height, imgDescriptor.image_row_pitch, image1, &status);
     if(status != CL_SUCCESS){
         fprintf(stderr, "Fail to create Image for the right image !\n");
         abort();
@@ -187,10 +187,10 @@ int32_t main()
     // ******** Call the kernels ********
     // Resize and grayscale kernel
     status = 0;
-    status  = clSetKernelArg(resize_kernel, 0, sizeof(clmemOrigImageL), &clmemOrigImageL);
-    status |= clSetKernelArg(resize_kernel, 1, sizeof(clmemOrigImageR), &clmemOrigImageR);
-    status |= clSetKernelArg(resize_kernel, 2, sizeof(clmemImageL), &clmemImageL);
-    status |= clSetKernelArg(resize_kernel, 3, sizeof(clmemImageR), &clmemImageR);
+    status  = clSetKernelArg(resize_kernel, 0, sizeof(clmemimage0), &clmemimage0);
+    status |= clSetKernelArg(resize_kernel, 1, sizeof(clmemimage1), &clmemimage1);
+    status |= clSetKernelArg(resize_kernel, 2, sizeof(clmemImage0), &clmemImage0);
+    status |= clSetKernelArg(resize_kernel, 3, sizeof(clmemImage1), &clmemImage1);
     status |= clSetKernelArg(resize_kernel, 4, sizeof(new_width), &new_width);
     status |= clSetKernelArg(resize_kernel, 5, sizeof(new_height), &new_height);
 
@@ -208,12 +208,12 @@ int32_t main()
     }
 
     clFinish(queue);
-    status = clEnqueueReadBuffer(queue, clmemImageL, CL_TRUE,  0, new_width*new_height, Disparity, 0, NULL, NULL);
+    status = clEnqueueReadBuffer(queue, clmemImage0, CL_TRUE,  0, new_width*new_height, Disparity, 0, NULL, NULL);
     if(status != CL_SUCCESS){
         fprintf(stderr, "'resize_kernel': Failed to send the data to host !\n");
         abort();
     }
-    status = clEnqueueReadBuffer(queue, clmemImageR, CL_TRUE,  0, new_width*new_height, Disparity, 0, NULL, NULL);
+    status = clEnqueueReadBuffer(queue, clmemImage1, CL_TRUE,  0, new_width*new_height, Disparity, 0, NULL, NULL);
     if(status != CL_SUCCESS){
         fprintf(stderr, "'resize_kernel': Failed to send the data to host !\n");
         abort();
@@ -221,8 +221,8 @@ int32_t main()
 
     // Disparity (L vs R) ZNCC kernel
     status = 0;
-    status  = clSetKernelArg(zncc_kernel, 0, sizeof(clmemImageL), &clmemImageL);
-    status |= clSetKernelArg(zncc_kernel, 1, sizeof(clmemImageR), &clmemImageR);
+    status  = clSetKernelArg(zncc_kernel, 0, sizeof(clmemImage0), &clmemImage0);
+    status |= clSetKernelArg(zncc_kernel, 1, sizeof(clmemImage1), &clmemImage1);
     status |= clSetKernelArg(zncc_kernel, 2, sizeof(clmemDispMap1), &clmemDispMap1);
     status |= clSetKernelArg(zncc_kernel, 3, sizeof(new_width), &new_width);
     status |= clSetKernelArg(zncc_kernel, 4, sizeof(new_height), &new_height);
@@ -246,8 +246,8 @@ int32_t main()
     // Disparity (R vs L) ZNCC kernel
     MAXDISP *= -1;
     status = 0;
-    status  = clSetKernelArg(zncc_kernel, 0, sizeof(clmemImageR), &clmemImageR);
-    status |= clSetKernelArg(zncc_kernel, 1, sizeof(clmemImageL), &clmemImageL);
+    status  = clSetKernelArg(zncc_kernel, 0, sizeof(clmemImage0), &clmemImage0);
+    status |= clSetKernelArg(zncc_kernel, 1, sizeof(clmemImage1), &clmemImage1);
     status |= clSetKernelArg(zncc_kernel, 2, sizeof(clmemDispMap2), &clmemDispMap2);
     status |= clSetKernelArg(zncc_kernel, 3, sizeof(new_width), &new_width);
     status |= clSetKernelArg(zncc_kernel, 4, sizeof(new_height), &new_height);
@@ -302,8 +302,8 @@ int32_t main()
 
     // ******** Save file to working directory (setup working directory may differ from IDEs) ********
     err = lodepng_encode_file("depthmap.png", Disparity, new_width, new_height, LCT_GREY, 8);
-    free(OrigImageR);
-    free(OrigImageL);
+    free(image0);
+    free(image1);
     free(resize_kernel_file);
     free(zncc_kernel_file);
     free(cross_check_kernel_file);
@@ -316,10 +316,10 @@ int32_t main()
     clReleaseCommandQueue(queue);
     clReleaseContext(ctx);
 
-    clReleaseMemObject(clmemOrigImageL);
-    clReleaseMemObject(clmemOrigImageR);
-    clReleaseMemObject(clmemImageL);
-    clReleaseMemObject(clmemImageR);
+    clReleaseMemObject(clmemimage0);
+    clReleaseMemObject(clmemimage1);
+    clReleaseMemObject(clmemImage0);
+    clReleaseMemObject(clmemImage1);
     clReleaseMemObject(clmemDispMap1);
     clReleaseMemObject(clmemDispMap2);
     clReleaseMemObject(clmemDispMapCrossCheck);
