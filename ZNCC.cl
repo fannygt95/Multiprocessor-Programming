@@ -1,4 +1,4 @@
-__kernel void zncc(__global uchar *img0, __global uchar *img1, __global uchar *DisMap, int w, int h, int window_w, int window_h, int win_area, int mind, int maxd) {
+__kernel void ZNCC(__global uchar *img0, __global uchar *img1, __global uchar *DisMap, int w, int h, int window_w, int window_h, int win_area, int mind, int maxd) {
 	
 	float average0, average1;     //Calcular medias
   	float desTipica0, desTipica1; //Calcular desviaciones típicas
