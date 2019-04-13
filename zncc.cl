@@ -1,6 +1,5 @@
 __kernel void zncc(__global uchar *img0, __global uchar *img1, __global uchar *DisMap, int w, int h, int window_w, int window_h, int win_area, int mind, int maxd) {
-
-	int d;
+	
 	float average0, average1;     //Calcular medias
   	float desTipica0, desTipica1; //Calcular desviaciones típicas
 	float aux0, aux1;	
@@ -13,7 +12,7 @@ __kernel void zncc(__global uchar *img0, __global uchar *img1, __global uchar *D
 	const int i = get_global_id(0);
 	const int j = get_global_id(1);
 
-	for (d = mind; d <= maxd; d++) {
+	for (int d = mind; d <= maxd; d++) {
 		average0 = average1 = 0;
 		for (int win_y = -window_h; win_y < window_h; win_y++) {  // SUMAR LOS PIXELES DE LAS VENTANAS
 			for (int win_x = -window_w; win_x < window_w; win_x++) {
