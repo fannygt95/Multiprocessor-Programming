@@ -11,29 +11,30 @@
 
 #include <CL/cl.h>
 
-const int DOWNSCALE         = 4;    // downscale 4x4 = 16 times
-const uint32_t HALFWINSIZEX = 8;    // Window size on X-axis (width)
-const uint32_t HALFWINSIZEY = 15;   // Window size on Y-axis (height)
-const int threshold         = 2;    // Threshold for cross-checkings
-const uint32_t WINSIZEAREA  = 527;  // (HALFWINSIZEX x 2 + 1) x (HALFWINSIZEX x 2 + 1) = WINSIZEAREA
 
-int MAXDISP                 = 64;   // n-disp value 260 (downscaled), 64 give caculating efficient instead of 65
-int MINDISP                 = 0;
+const int scale= 4;    // downscale 4x4 = 16 times
+const uint32_t half_winx= 8;    // Window size on X-axis (width)
+const uint32_t half_winy= 15;   // Window size on Y-axis (height)
+const int threshold= 8;    // Threshold for cross-checkings
+const uint32_t win_area= 527;  // (HALFWINSIZEX x 2 + 1) x (HALFWINSIZEY x 2 + 1) = WINSIZEAREA
 
-typedef struct cl_image_desc {
+int maxDisp= 64;   // n-disp value 260 (downscaled), 64 give caculating efficient instead of 65
+int minDisp= 0;
+
+typedef struct IMAGEN {
 	cl_mem_object_type image_type;
 	size_t image_width;
 	size_t image_height;
 	size_t image_depth;
-	size_t image_array_size;
+	size_t image_size;
 	size_t image_row_pitch;
 	size_t image_slice_pitch;
 	cl_uint num_mip_levels;
 	cl_uint num_samples;
 	cl_mem buffer;
-} cl_image_desc;
+} IMAGEN;
 
-cl_image_desc imgDescriptor;        // Image descriptor contains type and dimensions of the image
+IMAGEN imgDescriptor;        // Image descriptor contains type and dimensions of the image
 cl_image_format format = { CL_RGBA, CL_UNSIGNED_INT8 };
 
 
@@ -398,8 +399,7 @@ cl_kernel build_kernel_from_file(cl_context ctx, char const *kernel, char const 
 *  Replace each pixel with zero value with the nearest non-zero pixel value
 */
 uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h) {
-	int32_t i, j;
-	int32_t auxValue;
+	int32_t i, j, k;
 	int32_t win_y, win_x;
 	bool aux; 
 
@@ -410,35 +410,35 @@ uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h) {
 			result[i*w + j] = dispMap[i*w + j];
 			if (dispMap[i*w + j] == 0) {
 				aux = true;
-				auxValue = 0;
+				k = 0;
 				while (aux) {
-					auxValue++;
-					win_x = -auxValue;
-					for (win_y = -auxValue; win_y <= auxValue && aux; win_y++) {
+					k++;
+					win_x = -k;
+					for (win_y = -k; win_y <= k && aux; win_y++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
 							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
 							break;
 						}
 					}
-					win_x = auxValue;
-					for (win_y = -auxValue; win_y <= auxValue && aux; win_y++) {
+					win_x = k;
+					for (win_y = -k; win_y <= k && aux; win_y++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
 							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
 							break;
 						}
 					}
-					win_y = -auxValue;
-					for (win_x = -auxValue + 1; win_x <= auxValue - 1 && aux; win_x++) {
+					win_y = -k;
+					for (win_x = -k + 1; win_x <= k - 1 && aux; win_x++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
 							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
 							break;
 						}
 					}
-					win_y = auxValue;
-					for (win_x = -auxValue + 1; win_x <= auxValue && aux; win_x++) {
+					win_y = k;
+					for (win_x = -k + 1; win_x <= k && aux; win_x++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
 							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
@@ -452,13 +452,17 @@ uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h) {
 	return res;
 }
 
-void Normalizar(uint8_t* lastMap, uint32_t width, uint32_t height) {
+/******************************************************************************
+ *  Normalize the final disparity map
+ */
+void Normalizar (uint8_t* lastMap, uint32_t width, uint32_t height) {
     uint8_t maxValue = 0, minValue = UCHAR_MAX;
     uint32_t i;
     for (i = 0; i < width*height; i++) {
         if(lastMap [i]>maxValue) {maxValue=lastMap [i];}
         if(lastMap [i]<minValue) {minValue=lastMap [i];}
     }
+    // Nomarlize to grey scale 0..255(UCHAR_MAX)
     maxValue -= minValue;
     for (i = 0; i < width*height; i++) {
         lastMap [i] = (UCHAR_MAX*(lastMap i] - minValue)/maxValue);
