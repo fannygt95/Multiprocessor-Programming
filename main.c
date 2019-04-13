@@ -40,7 +40,7 @@ cl_image_format format = { CL_RGBA, CL_UNSIGNED_INT8 };
 
 char *read_kernel_file(const char *filename);
 cl_kernel build_kernel_from_file(cl_context ctx, char const *kernel, char const *kernel_name);
-void normalization(uint8_t* dispMap, uint32_t w, uint32_t h);
+void Normalizarn(uint8_t* lastMap, uint32_t width, uint32_t height);
 uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h);
 
 
@@ -455,16 +455,16 @@ uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h) {
 /******************************************************************************
  *  Normalize the final disparity map
  */
-void normalization(uint8_t* dispMap, uint32_t w, uint32_t h) {
+void Normalizar (uint8_t* lastMap, uint32_t width, uint32_t height) {
     uint8_t maxValue = 0, minValue = UCHAR_MAX;
     uint32_t i;
-    for (i = 0; i < w*h; i++) {
-        if(dispMap[i]>maxValue) {maxValue=dispMap[i];}
-        if(dispMap[i]<minValue) {minValue=dispMap[i];}
+    for (i = 0; i < width*height; i++) {
+        if(lastMap [i]>maxValue) {maxValue=lastMap [i];}
+        if(lastMap [i]<minValue) {minValue=lastMap [i];}
     }
     // Nomarlize to grey scale 0..255(UCHAR_MAX)
     maxValue -= minValue;
-    for (i = 0; i < w*h; i++) {
-        dispMap[i] = (UCHAR_MAX*(dispMap[i] - minValue)/maxValue);
+    for (i = 0; i < width*height; i++) {
+        lastMap [i] = (UCHAR_MAX*(lastMap i] - minValue)/maxValue);
     }
 }
