@@ -11,11 +11,10 @@
 
 #include <CL/cl.h>
 
-
 const int DOWNSCALE         = 4;    // downscale 4x4 = 16 times
 const uint32_t HALFWINSIZEX = 8;    // Window size on X-axis (width)
 const uint32_t HALFWINSIZEY = 15;   // Window size on Y-axis (height)
-const int THRESHOLD         = 2;    // Threshold for cross-checkings
+const int threshold         = 2;    // Threshold for cross-checkings
 const uint32_t WINSIZEAREA  = 527;  // (HALFWINSIZEX x 2 + 1) x (HALFWINSIZEX x 2 + 1) = WINSIZEAREA
 
 int MAXDISP                 = 64;   // n-disp value 260 (downscaled), 64 give caculating efficient instead of 65
