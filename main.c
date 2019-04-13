@@ -399,7 +399,8 @@ cl_kernel build_kernel_from_file(cl_context ctx, char const *kernel, char const 
 *  Replace each pixel with zero value with the nearest non-zero pixel value
 */
 uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h) {
-	int32_t i, j, k;
+	int32_t i, j;
+	int32_t auxValue;
 	int32_t win_y, win_x;
 	bool aux; 
 
@@ -410,35 +411,35 @@ uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h) {
 			result[i*w + j] = dispMap[i*w + j];
 			if (dispMap[i*w + j] == 0) {
 				aux = true;
-				k = 0;
+				auxValue = 0;
 				while (aux) {
-					k++;
-					win_x = -k;
-					for (win_y = -k; win_y <= k && aux; win_y++) {
+					auxValue++;
+					win_x = -auxValue;
+					for (win_y = -auxValue; win_y <= auxValue && aux; win_y++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
 							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
 							break;
 						}
 					}
-					win_x = k;
-					for (win_y = -k; win_y <= k && aux; win_y++) {
+					win_x = auxValue;
+					for (win_y = -auxValue; win_y <= auxValue && aux; win_y++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
 							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
 							break;
 						}
 					}
-					win_y = -k;
-					for (win_x = -k + 1; win_x <= k - 1 && aux; win_x++) {
+					win_y = -auxValue;
+					for (win_x = -auxValue + 1; win_x <= auxValue - 1 && aux; win_x++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
 							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
 							break;
 						}
 					}
-					win_y = k;
-					for (win_x = -k + 1; win_x <= k && aux; win_x++) {
+					win_y = auxValue;
+					for (win_x = -auxValue + 1; win_x <= auxValue && aux; win_x++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
 							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
@@ -452,17 +453,13 @@ uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h) {
 	return res;
 }
 
-/******************************************************************************
- *  Normalize the final disparity map
- */
-void Normalizar (uint8_t* lastMap, uint32_t width, uint32_t height) {
+void Normalizar(uint8_t* lastMap, uint32_t width, uint32_t height) {
     uint8_t maxValue = 0, minValue = UCHAR_MAX;
     uint32_t i;
     for (i = 0; i < width*height; i++) {
         if(lastMap [i]>maxValue) {maxValue=lastMap [i];}
         if(lastMap [i]<minValue) {minValue=lastMap [i];}
     }
-    // Nomarlize to grey scale 0..255(UCHAR_MAX)
     maxValue -= minValue;
     for (i = 0; i < width*height; i++) {
         lastMap [i] = (UCHAR_MAX*(lastMap i] - minValue)/maxValue);
