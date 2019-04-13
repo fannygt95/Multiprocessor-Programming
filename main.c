@@ -41,7 +41,7 @@ cl_image_format format = { CL_RGBA, CL_UNSIGNED_INT8 };
 char *read_kernel_file(const char *filename);
 cl_kernel build_kernel_from_file(cl_context ctx, char const *kernel, char const *kernel_name);
 void normalization(uint8_t* dispMap, uint32_t w, uint32_t h);
-uint8_t* occlusion_filling(const uint8_t* dispMap, uint32_t w, uint32_t h);
+uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h);
 
 
 int32_t main()
@@ -396,61 +396,60 @@ cl_kernel build_kernel_from_file(cl_context ctx, char const *kernel, char const 
 }
 
 /******************************************************************************
- *  Replace each pixel with zero value with the nearest non-zero pixel value
- */
-uint8_t* occlusion_filling(const uint8_t* dispMap, uint32_t w, uint32_t h) {
-    int32_t i, j, ii, jj, k;
-    bool flag; // flag for nearest non-zero pixel value
+*  Replace each pixel with zero value with the nearest non-zero pixel value
+*/
+uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h) {
+	int32_t i, j, k;
+	int32_t win_y, win_x;
+	bool aux; 
 
-    uint8_t* result = (uint8_t*) malloc(w*h);
+	uint8_t* res = (uint8_t*)malloc(w*h);
 
-    for (i = 0; i < h; i++) {
-        for (j = 0; j < w; j++) {
-            // If the value of the pixel is zero, perform the occlusion filling by nearest non-zero pixel value
-            result[i*w+j] = dispMap[i*w+j];
-            if(dispMap[i*w+j] == 0) {
-                // Search of non-zero pixel in the neighborhood i,j, neighborhoodsize++
-                flag = true;
-                k = 0;
-                while(flag) {
-                    k++;
-                    jj = -k;
-                    for (ii = -k; ii <= k && flag; ii++) {
-                        if (0<=i+ii && i+ii<h && 0<=j+jj && j+jj<w && dispMap[(i+ii)*w+(j+jj)]!=0) {
-                            result[i*w+j] = dispMap[(i+ii)*w+(j+jj)];
-                            flag = false;
-                            break;
-                        }
-                    }
-                    jj = k;
-                    for (ii = -k; ii <= k && flag; ii++) {
-                        if (0<=i+ii && i+ii<h && 0<=j+jj && j+jj<w && dispMap[(i+ii)*w+(j+jj)]!=0) {
-                            result[i*w+j] = dispMap[(i+ii)*w+(j+jj)];
-                            flag = false;
-                            break;
-                        }
-                    }
-                    ii = -k;
-                    for (jj = -k+1; jj <= k-1 && flag; jj++) {
-                        if (0<=i+ii && i+ii<h && 0<=j+jj && j+jj<w && dispMap[(i+ii)*w+(j+jj)]!=0) {
-                            result[i*w+j] = dispMap[(i+ii)*w+(j+jj)];
-                            flag = false;
-                            break;
-                        }
-                    }
-                    ii = k;
-                    for (jj = -k+1; jj <= k && flag; jj++) {
-                        if (0<=i+ii && i+ii<h && 0<=j+jj && j+jj<w && dispMap[(i+ii)*w+(j+jj)]!=0) {
-                            result[i*w+j] = dispMap[(i+ii)*w+(j+jj)];
-                            flag = false;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return result;
+	for (i = 0; i < h; i++) {
+		for (j = 0; j < w; j++) {
+			result[i*w + j] = dispMap[i*w + j];
+			if (dispMap[i*w + j] == 0) {
+				aux = true;
+				k = 0;
+				while (aux) {
+					k++;
+					win_x = -k;
+					for (win_y = -k; win_y <= k && aux; win_y++) {
+						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
+							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
+							aux = false;
+							break;
+						}
+					}
+					win_x = k;
+					for (win_y = -k; win_y <= k && aux; win_y++) {
+						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
+							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
+							aux = false;
+							break;
+						}
+					}
+					win_y = -k;
+					for (win_x = -k + 1; win_x <= k - 1 && aux; win_x++) {
+						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
+							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
+							aux = false;
+							break;
+						}
+					}
+					win_y = k;
+					for (win_x = -k + 1; win_x <= k && aux; win_x++) {
+						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
+							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
+							aux = false;
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+	return res;
 }
 
 /******************************************************************************
