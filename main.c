@@ -38,8 +38,8 @@ IMAGEN imgDescriptor;        // Image descriptor contains type and dimensions of
 cl_image_format format = { CL_RGBA, CL_UNSIGNED_INT8 };
 
 
-char *read_kernel_file(const char *filename);
-cl_kernel build_kernel_from_file(cl_context ctx, char const *kernel, char const *kernel_name);
+char *leerFichero(const char *filename);
+cl_kernel file_to_kernel(cl_context ctx, char const *kernel, char const *kernel_name);
 void Normalizar(uint8_t* lastMap, uint32_t width, uint32_t height);
 uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h);
 
@@ -331,29 +331,21 @@ int32_t main()
     return 0;
 }
 
-/******************************************************************************
- *  Function that use to read kernel file
- */
-char *read_kernel_file(const char *filename)
-{
-    FILE *f = fopen(filename, "r");
-    fseek(f, 0, SEEK_END);
-    size_t size = ftell(f);
-    fseek(f, 0, SEEK_SET);
+char *leerFichero(const char *filename){ //LEER KERNEL
+
+    FILE *fich = fopen(filename, "r");
+    fseek(fich, 0, SEEK_END);
+    size_t size = ftell(fich);
+    fseek(fich, 0, SEEK_SET);
 
     char *res = (char *) malloc(size+1);
-    if(!res) { // check error
-        perror("Fail to read file, can not allocation memory !");
+
+    if(fread(res, 1, size, fich) < size) { // check error
+        perror("Error de lectura");
         abort();
     }
 
-    // read file from stream
-    if(fread(res, 1, size, f) < size) { // check error
-        perror("Fail to read file, fread abort !");
-        abort();
-    }
-
-    fclose(f);
+    fclose(fich);
     res[size] = '\0';
     return res;
 }
@@ -361,44 +353,27 @@ char *read_kernel_file(const char *filename)
 /******************************************************************************
  *  Function that use to build kernel from file
  */
-cl_kernel build_kernel_from_file(cl_context ctx, char const *kernel, char const *kernel_name)
-{
+cl_kernel file_to_kernel(cl_context ctx, char const *kernel, char const *kernel_name){ //CONSTRUIR KERNEL
     cl_int status;
 
-    printf("Building kernel '%s'\n", kernel_name);
-    // get kernel size
     size_t sizes[] = { strlen(kernel) };
 
-    // create program
     cl_program program = clCreateProgramWithSource(ctx, 1, &kernel, sizes, &status);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Fail to create program, in kernel file: '%s' !\n", kernel_name);
-        abort();
-    }
 
-    // build program
     status = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Fail to build program, in kernel file: '%s' !\n", kernel_name);
-        abort();
-    }
 
-    // create our kernel from program
     cl_kernel res = clCreateKernel(program, kernel_name, &status);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Fail to create kernel, in kernel file: '%s' !\n", kernel_name);
-        abort();
-    }
+
     clReleaseProgram(program);
-    printf("Succefully builed kernel '%s'\n", kernel_name);
     return res;
 }
 
 /******************************************************************************
 *  Replace each pixel with zero value with the nearest non-zero pixel value
 */
-uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h) {
-	int32_t i, j, k;
+uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h){
+	int32_t i, j;
+	int32_t auxValor;
 	int32_t win_y, win_x;
 	bool aux; 
 
@@ -409,35 +384,35 @@ uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h) {
 			result[i*w + j] = dispMap[i*w + j];
 			if (dispMap[i*w + j] == 0) {
 				aux = true;
-				k = 0;
+				auxValor = 0;
 				while (aux) {
-					k++;
-					win_x = -k;
-					for (win_y = -k; win_y <= k && aux; win_y++) {
+					auxValor++;
+					win_x = -auxValor;
+					for (win_y = -auxValor; win_y <= auxValor && aux; win_y++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
 							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
 							break;
 						}
 					}
-					win_x = k;
-					for (win_y = -k; win_y <= k && aux; win_y++) {
+					win_x = auxValor;
+					for (win_y = -auxValor; win_y <= auxValor && aux; win_y++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
 							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
 							break;
 						}
 					}
-					win_y = -k;
-					for (win_x = -k + 1; win_x <= k - 1 && aux; win_x++) {
+					win_y = -auxValor;
+					for (win_x = -auxValor + 1; win_x <= auxValor - 1 && aux; win_x++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
 							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
 							break;
 						}
 					}
-					win_y = k;
-					for (win_x = -k + 1; win_x <= k && aux; win_x++) {
+					win_y = auxValor;
+					for (win_x = -auxValor + 1; win_x <= auxValor && aux; win_x++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
 							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
