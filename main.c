@@ -16,7 +16,7 @@ const int resizear= 4;    // downscale 4x4 = 16 times
 const uint32_t half_winx= 8;    // Window size on X-axis (width)
 const uint32_t half_winy= 15;   // Window size on Y-axis (height)
 const int threshold= 8;    // Threshold for cross-checkings
-const uint32_t win_area= 527;  // (HALFWINSIZEX x 2 + 1) x (HALFWINSIZEY x 2 + 1) = WINSIZEAREA
+const uint32_t win_area= 527;  // (half_winx x 2 + 1) x (half_winY x 2 + 1) = win_area
 
 int maxDisp= 64;   // n-disp value 260 (downscaled), 64 give caculating efficient instead of 65
 int minDisp= 0;
@@ -40,7 +40,7 @@ cl_image_format format = { CL_RGBA, CL_UNSIGNED_INT8 };
 
 char *leerFichero(const char *filename);
 cl_kernel file_to_kernel(cl_context ctx, char const *kernel, char const *kernel_name);
-void Normalizar(uint8_t* lastMap, uint32_t width, uint32_t height);
+void normalizar(uint8_t* lastMap, uint32_t width, uint32_t height);
 uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h);
 
 
@@ -226,11 +226,11 @@ int32_t main()
     status |= clSetKernelArg(zncc_kernel, 2, sizeof(clmemDispMap1), &clmemDispMap1);
     status |= clSetKernelArg(zncc_kernel, 3, sizeof(new_width), &new_width);
     status |= clSetKernelArg(zncc_kernel, 4, sizeof(new_height), &new_height);
-    status |= clSetKernelArg(zncc_kernel, 5, sizeof(HALFWINSIZEX), &HALFWINSIZEX);
-    status |= clSetKernelArg(zncc_kernel, 6, sizeof(HALFWINSIZEY), &HALFWINSIZEY);
-    status |= clSetKernelArg(zncc_kernel, 7, sizeof(WINSIZEAREA), &WINSIZEAREA);
-    status |= clSetKernelArg(zncc_kernel, 8, sizeof(MINDISP), &MINDISP);
-    status |= clSetKernelArg(zncc_kernel, 9, sizeof(MAXDISP), &MAXDISP);
+    status |= clSetKernelArg(zncc_kernel, 5, sizeof(half_winx), &half_winx);
+    status |= clSetKernelArg(zncc_kernel, 6, sizeof(half_winy), &half_winy);
+    status |= clSetKernelArg(zncc_kernel, 7, sizeof(win_area), &win_area);
+    status |= clSetKernelArg(zncc_kernel, 8, sizeof(minDisp), &minDisp);
+    status |= clSetKernelArg(zncc_kernel, 9, sizeof(maxDisp), &maxDisp);
     if(status != CL_SUCCESS){
         fprintf(stderr, "Failed to set kernel arguments for 'zncc_kernel', Dispmap1 !\n");
         abort();
@@ -244,18 +244,18 @@ int32_t main()
     }
 
     // Disparity (R vs L) ZNCC kernel
-    MAXDISP *= -1;
+    maxDisp *= -1;
     status = 0;
     status  = clSetKernelArg(zncc_kernel, 0, sizeof(clmemImage0), &clmemImage0);
     status |= clSetKernelArg(zncc_kernel, 1, sizeof(clmemImage1), &clmemImage1);
     status |= clSetKernelArg(zncc_kernel, 2, sizeof(clmemDispMap2), &clmemDispMap2);
     status |= clSetKernelArg(zncc_kernel, 3, sizeof(new_width), &new_width);
     status |= clSetKernelArg(zncc_kernel, 4, sizeof(new_height), &new_height);
-    status |= clSetKernelArg(zncc_kernel, 5, sizeof(HALFWINSIZEX), &HALFWINSIZEX);
-    status |= clSetKernelArg(zncc_kernel, 6, sizeof(HALFWINSIZEY), &HALFWINSIZEY);
-    status |= clSetKernelArg(zncc_kernel, 7, sizeof(WINSIZEAREA), &WINSIZEAREA);
-    status |= clSetKernelArg(zncc_kernel, 8, sizeof(MAXDISP), &MAXDISP);
-    status |= clSetKernelArg(zncc_kernel, 9, sizeof(MINDISP), &MINDISP);
+    status |= clSetKernelArg(zncc_kernel, 5, sizeof(half_winx), &half_winx);
+    status |= clSetKernelArg(zncc_kernel, 6, sizeof(half_winy), &half_winy);
+    status |= clSetKernelArg(zncc_kernel, 7, sizeof(win_area), &win_area);
+    status |= clSetKernelArg(zncc_kernel, 8, sizeof(minDisp), &minDisp);
+    status |= clSetKernelArg(zncc_kernel, 9, sizeof(maxDisp), &maxDisp);
     if(status != CL_SUCCESS){
         fprintf(stderr, "Failed to set kernel arguments for 'zncc_kernel' Dispmap2 !\n");
         abort();
@@ -429,16 +429,21 @@ uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h){
 /******************************************************************************
  *  Normalize the final disparity map
  */
-void Normalizar (uint8_t* lastMap, uint32_t width, uint32_t height) {
-    uint8_t maxValue = 0, minValue = UCHAR_MAX;
-    uint32_t i;
-    for (i = 0; i < width*height; i++) {
-        if(lastMap [i]>maxValue) {maxValue=lastMap [i];}
-        if(lastMap [i]<minValue) {minValue=lastMap [i];}
-    }
-    // Nomarlize to grey scale 0..255(UCHAR_MAX)
-    maxValue -= minValue;
-    for (i = 0; i < width*height; i++) {
-        lastMap [i] = (UCHAR_MAX*(lastMap i] - minValue)/maxValue);
-    }
+void normalizar(uint8_t* lastMap, uint32_t width, uint32_t height) {
+	uint8_t maxValue = 0;
+	uint8_t minValue = UCHAR_MAX;
+	uint32_t i;
+	for (i = 0; i < width*height; i++) {
+		if(lastMap [i]>maxValue){
+			maxValue=lastMap[i];
+		}
+		
+        	if(lastMap [i]<minValue){
+			minValue=lastMap[i];
+		}
+	}	
+	maxValue -= minValue;
+	for (i = 0; i < width*height; i++) {
+		lastMap [i] = (UCHAR_MAX*(lastMap i] - minValue)/maxValue);
+	}
 }
