@@ -12,7 +12,7 @@
 #include <CL/cl.h>
 
 
-const int scale= 4;    // downscale 4x4 = 16 times
+const int resizear= 4;    // downscale 4x4 = 16 times
 const uint32_t half_winx= 8;    // Window size on X-axis (width)
 const uint32_t half_winy= 15;   // Window size on Y-axis (height)
 const int threshold= 8;    // Threshold for cross-checkings
@@ -46,11 +46,11 @@ uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h);
 
 int32_t main()
 {
-    uint8_t *OrigImageL, *OrigImageR; // Left & Right image 2940x2016
+    uint8_t *image0, *image1; // Left & Right image 2940x2016
     uint8_t *dDisparity, *Disparity;
 
     uint32_t err;                       // Error code, 0 is OK
-    uint32_t Width, Height;             // resize
+    uint32_t new_width, new_height;             // resize
     uint32_t wL, hL, wR, hR;            // original size of Left & Right image
 
     struct timespec totalStartTime, totalEndTime;
@@ -68,18 +68,17 @@ int32_t main()
 
 
     // ******** Load the left image into memory & check loading error ********
-    err = lodepng_decode32_file(&OrigImageL, &wL, &hL, "im0.png");
+    err = lodepng_decode32_file(&image0, &wL, &hL, "im0.png");
     if(err) {
         printf("Error when loading the left image %u: %s\n", err, lodepng_error_text(err));
-        free(OrigImageL);
+        free(image0);
         return -1;
     }
     // Load the right image into memory & check loading error
-    err = lodepng_decode32_file(&OrigImageR, &wR, &hR, "im1.png");
+    err = lodepng_decode32_file(&image1, &wR, &hR, "im1.png");
     if(err) {
         printf("Error when loading the right image %u: %s\n", err, lodepng_error_text(err));
-        free(OrigImageL);
-        free(OrigImageR);
+        free(image1);
         return -1;
     }
     // Check picture size error
@@ -89,8 +88,8 @@ int32_t main()
         free(OrigImageR);
         return -1;
     }
-    Width       = wL/DOWNSCALE;
-    Height      = hL/DOWNSCALE;
+    new_width= wL/resizear;
+    new_height= hL/resizear;
 
     clock_gettime(CLOCK_MONOTONIC, &totalStartTime); // Starting time
     printf("Running openCL implement of ZNCC on images. Please wait, this will take several minutes...\n");
@@ -122,31 +121,31 @@ int32_t main()
 
 
     // ******** Create buffers memory objects ********
-    cl_mem clmemImageL = clCreateBuffer(ctx, CL_MEM_READ_ONLY, Width*Height, 0, &status);
+    cl_mem clmemImageL = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
     if(status != CL_SUCCESS){
         fprintf(stderr, "Fail to create buffer for the left image !\n");
         abort();
     }
 
-    cl_mem clmemImageR = clCreateBuffer(ctx, CL_MEM_READ_ONLY, Width*Height, 0, &status);
+    cl_mem clmemImageR = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
     if(status != CL_SUCCESS){
         fprintf(stderr, "Fail to create buffer for the right image !\n");
         abort();
     }
 
-    cl_mem clmemDispMap1 = clCreateBuffer(ctx, CL_MEM_READ_ONLY, Width*Height, 0, &status);
+    cl_mem clmemDispMap1 = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
     if(status != CL_SUCCESS){
         fprintf(stderr, "Fail to create buffer for the Disparity map L vs R !\n");
         abort();
     }
 
-    cl_mem clmemDispMap2 = clCreateBuffer(ctx, CL_MEM_READ_ONLY, Width*Height, 0, &status);
+    cl_mem clmemDispMap2 = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
     if(status != CL_SUCCESS){
         fprintf(stderr, "Fail to create buffer for the Disparity map R vs L !\n");
         abort();
     }
 
-    cl_mem clmemDispMapCrossCheck = clCreateBuffer(ctx, CL_MEM_READ_ONLY, Width*Height, 0, &status);
+    cl_mem clmemDispMapCrossCheck = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
     if(status != CL_SUCCESS){
         fprintf(stderr, "Fail to create buffer for the Disparity cross checking map !\n");
         abort();
@@ -162,10 +161,10 @@ int32_t main()
     imgDescriptor.image_width = wL;
     imgDescriptor.image_height = hL;
     imgDescriptor.image_depth = 8;
-    imgDescriptor.image_row_pitch = wL * DOWNSCALE;
+    imgDescriptor.image_row_pitch = wL * resizear;
 
-    dDisparity = (uint8_t*) malloc(Width*Height);
-    Disparity  = (uint8_t*) malloc(Width*Height);
+    dDisparity = (uint8_t*) malloc(new_width*new_height);
+    Disparity  = (uint8_t*) malloc(new_width*new_height);
 
 
     cl_kernel resize_kernel     = build_kernel_from_file(ctx, resize_kernel_file, "resize");
@@ -192,8 +191,8 @@ int32_t main()
     status |= clSetKernelArg(resize_kernel, 1, sizeof(clmemOrigImageR), &clmemOrigImageR);
     status |= clSetKernelArg(resize_kernel, 2, sizeof(clmemImageL), &clmemImageL);
     status |= clSetKernelArg(resize_kernel, 3, sizeof(clmemImageR), &clmemImageR);
-    status |= clSetKernelArg(resize_kernel, 4, sizeof(Width), &Width);
-    status |= clSetKernelArg(resize_kernel, 5, sizeof(Height), &Height);
+    status |= clSetKernelArg(resize_kernel, 4, sizeof(new_width), &new_width);
+    status |= clSetKernelArg(resize_kernel, 5, sizeof(new_height), &new_height);
 
     if(status != CL_SUCCESS){
         fprintf(stderr, "Failed to set kernel arguments for 'resize_kernel' !\n");
@@ -209,12 +208,12 @@ int32_t main()
     }
 
     clFinish(queue);
-    status = clEnqueueReadBuffer(queue, clmemImageL, CL_TRUE,  0, Width*Height, Disparity, 0, NULL, NULL);
+    status = clEnqueueReadBuffer(queue, clmemImageL, CL_TRUE,  0, new_width*new_height, Disparity, 0, NULL, NULL);
     if(status != CL_SUCCESS){
         fprintf(stderr, "'resize_kernel': Failed to send the data to host !\n");
         abort();
     }
-    status = clEnqueueReadBuffer(queue, clmemImageR, CL_TRUE,  0, Width*Height, Disparity, 0, NULL, NULL);
+    status = clEnqueueReadBuffer(queue, clmemImageR, CL_TRUE,  0, new_width*new_height, Disparity, 0, NULL, NULL);
     if(status != CL_SUCCESS){
         fprintf(stderr, "'resize_kernel': Failed to send the data to host !\n");
         abort();
@@ -225,8 +224,8 @@ int32_t main()
     status  = clSetKernelArg(zncc_kernel, 0, sizeof(clmemImageL), &clmemImageL);
     status |= clSetKernelArg(zncc_kernel, 1, sizeof(clmemImageR), &clmemImageR);
     status |= clSetKernelArg(zncc_kernel, 2, sizeof(clmemDispMap1), &clmemDispMap1);
-    status |= clSetKernelArg(zncc_kernel, 3, sizeof(Width), &Width);
-    status |= clSetKernelArg(zncc_kernel, 4, sizeof(Height), &Height);
+    status |= clSetKernelArg(zncc_kernel, 3, sizeof(new_width), &new_width);
+    status |= clSetKernelArg(zncc_kernel, 4, sizeof(new_height), &new_height);
     status |= clSetKernelArg(zncc_kernel, 5, sizeof(HALFWINSIZEX), &HALFWINSIZEX);
     status |= clSetKernelArg(zncc_kernel, 6, sizeof(HALFWINSIZEY), &HALFWINSIZEY);
     status |= clSetKernelArg(zncc_kernel, 7, sizeof(WINSIZEAREA), &WINSIZEAREA);
@@ -250,8 +249,8 @@ int32_t main()
     status  = clSetKernelArg(zncc_kernel, 0, sizeof(clmemImageR), &clmemImageR);
     status |= clSetKernelArg(zncc_kernel, 1, sizeof(clmemImageL), &clmemImageL);
     status |= clSetKernelArg(zncc_kernel, 2, sizeof(clmemDispMap2), &clmemDispMap2);
-    status |= clSetKernelArg(zncc_kernel, 3, sizeof(Width), &Width);
-    status |= clSetKernelArg(zncc_kernel, 4, sizeof(Height), &Height);
+    status |= clSetKernelArg(zncc_kernel, 3, sizeof(new_width), &new_width);
+    status |= clSetKernelArg(zncc_kernel, 4, sizeof(new_height), &new_height);
     status |= clSetKernelArg(zncc_kernel, 5, sizeof(HALFWINSIZEX), &HALFWINSIZEX);
     status |= clSetKernelArg(zncc_kernel, 6, sizeof(HALFWINSIZEY), &HALFWINSIZEY);
     status |= clSetKernelArg(zncc_kernel, 7, sizeof(WINSIZEAREA), &WINSIZEAREA);
@@ -286,7 +285,7 @@ int32_t main()
     }
 
     clFinish(queue);
-    status = clEnqueueReadBuffer(queue, clmemDispMapCrossCheck, CL_TRUE, 0, Width*Height, dDisparity, 0, NULL, NULL);
+    status = clEnqueueReadBuffer(queue, clmemDispMapCrossCheck, CL_TRUE, 0, new_width*new_height, dDisparity, 0, NULL, NULL);
     if(status != CL_SUCCESS){
         fprintf(stderr, "'cross_check_kernel': Failed to send the data to host !\n");
         abort();
@@ -294,15 +293,15 @@ int32_t main()
 
 
     // ******** run occlusion_filling & nomalize on host-code ********
-    Disparity = occlusion_filling(dDisparity, Width, Height);
-    normalization(Disparity, Width, Height);
+    Disparity = occlusion_filling(dDisparity, new_width, new_height);
+    normalization(Disparity, new_width, new_height);
 
     clock_gettime(CLOCK_MONOTONIC, &totalEndTime); // Ending time
     printf("*** Total ZNCC OpenCL executed time: %f s. ***\n", (double)(totalEndTime.tv_sec - totalStartTime.tv_sec) + (double)(totalEndTime.tv_nsec - totalStartTime.tv_nsec)/1000000000);
 
 
     // ******** Save file to working directory (setup working directory may differ from IDEs) ********
-    err = lodepng_encode_file("depthmap.png", Disparity, Width, Height, LCT_GREY, 8);
+    err = lodepng_encode_file("depthmap.png", Disparity, new_width, new_height, LCT_GREY, 8);
     free(OrigImageR);
     free(OrigImageL);
     free(resize_kernel_file);
