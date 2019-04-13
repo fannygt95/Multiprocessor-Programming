@@ -40,7 +40,7 @@ cl_image_format format = { CL_RGBA, CL_UNSIGNED_INT8 };
 
 char *read_kernel_file(const char *filename);
 cl_kernel build_kernel_from_file(cl_context ctx, char const *kernel, char const *kernel_name);
-void Normalizarn(uint8_t* lastMap, uint32_t width, uint32_t height);
+void Normalizar(uint8_t* lastMap, uint32_t width, uint32_t height);
 uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h);
 
 
