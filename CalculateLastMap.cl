@@ -1,4 +1,4 @@
-__kernel voidcross_check(__global uchar* firstMap, __global unchar* secondMap, __global uchar* lastMap, uint threshold) {
+__kernel CalculateLastMap(__global uchar* firstMap, __global unchar* secondMap, __global uchar* lastMap, uint threshold) {
 
       constinti = get_global_id(0);
       
