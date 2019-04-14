@@ -18,7 +18,7 @@ const uint32_t half_winy= 15;   // Window size on Y-axis (height)
 const int threshold= 8;    // Threshold for cross-checkings
 const uint32_t win_area= 527;  // (half_winx x 2 + 1) x (half_winY x 2 + 1) = win_area
 
-int maxDisp= 64;   // n-disp value 260 (downscaled), 64 give caculating efficient instead of 65
+int maxDisp= 64;   
 int minDisp= 0;
 
 typedef struct IMAGEN {
@@ -50,8 +50,8 @@ int32_t main()
     uint8_t *dDisparity, *Disparity;
 
     uint32_t err;                       // Error code, 0 is OK
-    uint32_t new_width, new_height;             // resize
-    uint32_t wL, hL, wR, hR;            // original size of Left & Right image
+    uint32_t new_width, new_height;     // nuevo tamaño
+    uint32_t wL, hL, wR, hR;            // tamaños originales
 
     struct timespec totalStartTime, totalEndTime;
 
@@ -59,29 +59,26 @@ int32_t main()
     cl_command_queue queue;
     cl_int status;
 
-    const size_t localWorkSize[]    = {16, 16};       // Local work size
-	  //const size_t localWorkSize[]    = {2, 2};       // Local work size (Odroid)
-		const size_t globalWorkSize[]   = {504, 736};   // Global work size
+    const size_t localWorkSize[] = {16, 16};       
+    const size_t globalWorkSize[] = {504, 736};   
 
-    const size_t localWorkSize1D[]  = {localWorkSize[0]*localWorkSize[1]};      // 1-dimentional local work size
-    const size_t globalWorkSize1D[] = {globalWorkSize[0]*globalWorkSize[1]};    // 1-dimentional global work size
+    const size_t localWorkSize1D[]  = {localWorkSize[0]*localWorkSize[1]};      
+    const size_t globalWorkSize1D[] = {globalWorkSize[0]*globalWorkSize[1]};    
 
 
-    // ******** Load the left image into memory & check loading error ********
+    // CARGAR IMAGENES EN MEMORIA Y COMPROBAR POSIBLES ERRORES
     err = lodepng_decode32_file(&image0, &wL, &hL, "im0.png");
     if(err) {
         printf("Error when loading the left image %u: %s\n", err, lodepng_error_text(err));
         free(image0);
         return -1;
     }
-    // Load the right image into memory & check loading error
     err = lodepng_decode32_file(&image1, &wR, &hR, "im1.png");
     if(err) {
         printf("Error when loading the right image %u: %s\n", err, lodepng_error_text(err));
         free(image1);
         return -1;
     }
-    // Check picture size error
     if(wL!=wR || hL!=hR) {
         printf("Error, the size of left and right images not match.\n");
         free(image0);
@@ -91,37 +88,34 @@ int32_t main()
     new_width= wL/resizear;
     new_height= hL/resizear;
 
-    clock_gettime(CLOCK_MONOTONIC, &totalStartTime); // Starting time
-    printf("Running openCL implement of ZNCC on images. Please wait, this will take several minutes...\n");
+    clock_gettime(CLOCK_MONOTONIC, &totalStartTime);
 
-
-    // ******** Setup OpenCL environment to run the kernel ********
+    // KERNEL
     cl_platform_id platform = 0;
     cl_device_id device = 0;
     cl_context_properties props[3] = { CL_CONTEXT_PLATFORM, 0, 0 };
 
     status = clGetPlatformIDs( 1, &platform, NULL );
-	printf("clGetPlatformIDs status == CL_SUCCESS - %d\n", status == CL_SUCCESS);
     int gpu = 1; // O : CPU, 1 : GPU
     status = clGetDeviceIDs(platform, gpu ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device, NULL);
 
     props[1] = (cl_context_properties)platform;
-    // context
     ctx = clCreateContext( props, 1, &device, NULL, NULL, &status );
-    if(status != CL_SUCCESS){
+  /*  if(status != CL_SUCCESS){
         fprintf(stderr, "Fail to create context for OpenCL !\n");
         abort();
     }
-    // queue
+  */  
     queue = clCreateCommandQueue( ctx, device, 0, &status );
-    if(status != CL_SUCCESS){
+    /*if(status != CL_SUCCESS){
         fprintf(stderr, "Fail to create queue for OpenCL context !\n");
         abort();
     }
+*/
 
-
-    // ******** Create buffers memory objects ********
+    // MEMORIA
     cl_mem clmemImage0 = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
+	
     if(status != CL_SUCCESS){
         fprintf(stderr, "Fail to create buffer for the left image !\n");
         abort();
@@ -151,12 +145,10 @@ int32_t main()
         abort();
     }
 
-    // ******** Read kernel file ********
-    char *resize_kernel_file       = read_kernel_file("resize.cl");
-    char *zncc_kernel_file         = read_kernel_file("zncc.cl");
-    char *cross_check_kernel_file  = read_kernel_file("cross_check.cl");
+    char *resize_kernel_file       = read_kernel_file("ReduceGrayMatrix.cl");
+    char *zncc_kernel_file         = read_kernel_file("ZNCC.cl");
+    char *cross_check_kernel_file  = read_kernel_file("CalculateLastMap.cl");
 
-    // ******* Init cl kernel from files *******
     imgDescriptor.image_type = CL_MEM_OBJECT_IMAGE2D;
     imgDescriptor.image_width = wL;
     imgDescriptor.image_height = hL;
@@ -167,11 +159,11 @@ int32_t main()
     Disparity  = (uint8_t*) malloc(new_width*new_height);
 
 
-    cl_kernel resize_kernel     = build_kernel_from_file(ctx, resize_kernel_file, "resize");
-    cl_kernel zncc_kernel       = build_kernel_from_file(ctx, zncc_kernel_file, "zncc");
-    cl_kernel cross_check_kernel= build_kernel_from_file(ctx, cross_check_kernel_file, "cross_check");
+    cl_kernel resize_kernel     = build_kernel_from_file(ctx, resize_kernel_file, "ReduceGrayMatrix");
+    cl_kernel zncc_kernel       = build_kernel_from_file(ctx, zncc_kernel_file, "ZNCC");
+    cl_kernel cross_check_kernel= build_kernel_from_file(ctx, cross_check_kernel_file, "CalculateLastMap");
 
-    // ******** Create images memory objects ********
+    // CREAR OBJETOS IMAGENES EN MEMROIA******** Create images memory objects ********
     cl_mem clmemimage0 = clCreateImage2D(ctx, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, &format, imgDescriptor.image_width, imgDescriptor.image_height, imgDescriptor.image_row_pitch, image0, &status);
     if(status != CL_SUCCESS){
         fprintf(stderr, "Fail to create Image for the left image !\n");
@@ -184,8 +176,7 @@ int32_t main()
         abort();
     }
 
-    // ******** Call the kernels ********
-    // Resize and grayscale kernel
+    // LLAMADA A LOS KERNELS
     status = 0;
     status  = clSetKernelArg(resize_kernel, 0, sizeof(clmemimage0), &clmemimage0);
     status |= clSetKernelArg(resize_kernel, 1, sizeof(clmemimage1), &clmemimage1);
