@@ -5,9 +5,8 @@ __kernel void ZNCC(__global uchar *img0, __global uchar *img1, __global uchar *D
 	float aux0, aux1;	
   
 	float correlation;
-  	float biggestCorrelation; 
+  	float biggestCorrelation = -10000; 
   	int ValorMatriz = maxd;
-	double biggestCorrelation = -10000;
 
 	const int i = get_global_id(0);
 	const int j = get_global_id(1);
@@ -38,7 +37,7 @@ __kernel void ZNCC(__global uchar *img0, __global uchar *img1, __global uchar *D
 			}
 		}
 		correlation = correlation / (native_sqrt(desTipica0)*native_sqrt(desTipica1));
-		// WHICH IT IS THE BIGGEST DISPARITY
+		// MAYOR VALOR DE DISPARIDAD
 		if (correlation > biggestCorrelation) {
 			biggestCorrelation = correlation;
 			ValorMatriz = d;
