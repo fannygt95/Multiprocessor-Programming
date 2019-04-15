@@ -12,10 +12,10 @@
 #include <CL/cl.h>
 
 
-const int resizear= 4;    // downscale 4x4 = 16 times
-const uint32_t half_winx= 8;    // Window size on X-axis (width)
-const uint32_t half_winy= 15;   // Window size on Y-axis (height)
-const int threshold= 8;    // Threshold for cross-checkings
+const int resizear= 4;    // valor por el que dividimos la imagen
+const uint32_t half_winx= 8;    
+const uint32_t half_winy= 15;   
+const int threshold= 8;    // Threshold para calcular el mapa final
 const uint32_t win_area= 527;  // (half_winx x 2 + 1) x (half_winY x 2 + 1) = win_area
 
 int maxDisp= 64;   
@@ -35,7 +35,7 @@ typedef struct IMAGEN {
 } IMAGEN;
 
 IMAGEN imgDescriptor;        // Image descriptor contains type and dimensions of the image
-cl_image_format format = { CL_RGBA, CL_UNSIGNED_INT8 };
+cl_image_format format = {CL_RGBA, CL_UNSIGNED_INT8};
 
 
 char *leerFichero(const char *filename);
@@ -46,7 +46,7 @@ uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h);
 
 int32_t main()
 {
-    uint8_t *image0, *image1; // Left & Right image 2940x2016
+    uint8_t *image0, *image1; // Imagenes iniciales
     uint8_t *dDisparity, *Disparity;
 
     uint32_t err;                       // Error code, 0 is OK
@@ -67,20 +67,10 @@ int32_t main()
 
 
     // CARGAR IMAGENES EN MEMORIA Y COMPROBAR POSIBLES ERRORES
-    err = lodepng_decode32_file(&image0, &wL, &hL, "im0.png");
-    if(err) {
-        printf("Error when loading the left image %u: %s\n", err, lodepng_error_text(err));
-        free(image0);
-        return -1;
-    }
-    err = lodepng_decode32_file(&image1, &wR, &hR, "im1.png");
-    if(err) {
-        printf("Error when loading the right image %u: %s\n", err, lodepng_error_text(err));
-        free(image1);
-        return -1;
-    }
+    lodepng_decode32_file(&image0, &wL, &hL, "im0.png");
+    lodepng_decode32_file(&image1, &wR, &hR, "im1.png");
     if(wL!=wR || hL!=hR) {
-        printf("Error, the size of left and right images not match.\n");
+        printf("Error, tamaños diferentes.\n");
         free(image0);
         free(image1);
         return -1;
@@ -93,58 +83,25 @@ int32_t main()
     // KERNEL
     cl_platform_id platform = 0;
     cl_device_id device = 0;
-    cl_context_properties props[3] = { CL_CONTEXT_PLATFORM, 0, 0 };
+    cl_context_properties props[3] = {CL_CONTEXT_PLATFORM, 0, 0};
 
-    status = clGetPlatformIDs( 1, &platform, NULL );
+    status = clGetPlatformIDs(1, &platform, NULL);
     int gpu = 1; // O : CPU, 1 : GPU
     status = clGetDeviceIDs(platform, gpu ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device, NULL);
 
     props[1] = (cl_context_properties)platform;
     ctx = clCreateContext( props, 1, &device, NULL, NULL, &status );
-  /*  if(status != CL_SUCCESS){
-        fprintf(stderr, "Fail to create context for OpenCL !\n");
-        abort();
-    }
-  */  
     queue = clCreateCommandQueue( ctx, device, 0, &status );
-    /*if(status != CL_SUCCESS){
-        fprintf(stderr, "Fail to create queue for OpenCL context !\n");
-        abort();
-    }
-*/
-
-    // MEMORIA
+    
+    // MEMORIA PARA IMAGENES Y DISPARITY MAPS
     cl_mem clmemImage0 = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
-	
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Fail to create buffer for the left image !\n");
-        abort();
-    }
-
     cl_mem clmemImageR = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Fail to create buffer for the right image !\n");
-        abort();
-    }
-
-    cl_mem clmemDispMap1 = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Fail to create buffer for the Disparity map L vs R !\n");
-        abort();
-    }
-
-    cl_mem clmemDispMap2 = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Fail to create buffer for the Disparity map R vs L !\n");
-        abort();
-    }
-
-    cl_mem clmemDispMapCrossCheck = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Fail to create buffer for the Disparity cross checking map !\n");
-        abort();
-    }
-
+    
+    cl_mem IzqDer = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
+    cl_mem DerIzq = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
+    
+    cl_mem FinalMap = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
+    
     char *resize_kernel_file       = read_kernel_file("ReduceGrayMatrix.cl");
     char *zncc_kernel_file         = read_kernel_file("ZNCC.cl");
     char *cross_check_kernel_file  = read_kernel_file("CalculateLastMap.cl");
@@ -165,17 +122,8 @@ int32_t main()
 
     // CREAR OBJETOS IMAGENES EN MEMROIA******** Create images memory objects ********
     cl_mem clmemimage0 = clCreateImage2D(ctx, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, &format, imgDescriptor.image_width, imgDescriptor.image_height, imgDescriptor.image_row_pitch, image0, &status);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Fail to create Image for the left image !\n");
-        abort();
-    }
-
     cl_mem clmemimage1 = clCreateImage2D(ctx, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, &format, imgDescriptor.image_width, imgDescriptor.image_height, imgDescriptor.image_row_pitch, image1, &status);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Fail to create Image for the right image !\n");
-        abort();
-    }
-
+    
     // LLAMADA A LOS KERNELS
     status = 0;
     status  = clSetKernelArg(resize_kernel, 0, sizeof(clmemimage0), &clmemimage0);
@@ -185,36 +133,17 @@ int32_t main()
     status |= clSetKernelArg(resize_kernel, 4, sizeof(new_width), &new_width);
     status |= clSetKernelArg(resize_kernel, 5, sizeof(new_height), &new_height);
 
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Failed to set kernel arguments for 'resize_kernel' !\n");
-        abort();
-    }
-
     status = clEnqueueNDRangeKernel(queue, resize_kernel, 2, NULL, (const size_t*)&globalWorkSize, (const size_t*)&localWorkSize, 0, NULL, NULL);
-
-
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Failed to execute 'resize_kernel' on the device !\n");
-        abort();
-    }
 
     clFinish(queue);
     status = clEnqueueReadBuffer(queue, clmemImage0, CL_TRUE,  0, new_width*new_height, Disparity, 0, NULL, NULL);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "'resize_kernel': Failed to send the data to host !\n");
-        abort();
-    }
     status = clEnqueueReadBuffer(queue, clmemImage1, CL_TRUE,  0, new_width*new_height, Disparity, 0, NULL, NULL);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "'resize_kernel': Failed to send the data to host !\n");
-        abort();
-    }
-
-    // Disparity (L vs R) ZNCC kernel
+   
+    // MAPA DE DISPARIDAD DE IMAGEN 0 A IMAGEN 1
     status = 0;
     status  = clSetKernelArg(zncc_kernel, 0, sizeof(clmemImage0), &clmemImage0);
     status |= clSetKernelArg(zncc_kernel, 1, sizeof(clmemImage1), &clmemImage1);
-    status |= clSetKernelArg(zncc_kernel, 2, sizeof(clmemDispMap1), &clmemDispMap1);
+    status |= clSetKernelArg(zncc_kernel, 2, sizeof(IzqDer), &IzqDer);
     status |= clSetKernelArg(zncc_kernel, 3, sizeof(new_width), &new_width);
     status |= clSetKernelArg(zncc_kernel, 4, sizeof(new_height), &new_height);
     status |= clSetKernelArg(zncc_kernel, 5, sizeof(half_winx), &half_winx);
@@ -222,24 +151,15 @@ int32_t main()
     status |= clSetKernelArg(zncc_kernel, 7, sizeof(win_area), &win_area);
     status |= clSetKernelArg(zncc_kernel, 8, sizeof(minDisp), &minDisp);
     status |= clSetKernelArg(zncc_kernel, 9, sizeof(maxDisp), &maxDisp);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Failed to set kernel arguments for 'zncc_kernel', Dispmap1 !\n");
-        abort();
-    }
-
+    
     status = clEnqueueNDRangeKernel(queue, zncc_kernel, 2, NULL, (const size_t*)&globalWorkSize, (const size_t*)&localWorkSize, 0, NULL, NULL);
 
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Failed to execute 'zncc_kernel' on the device, Dispmap1!\n");
-        abort();
-    }
-
-    // Disparity (R vs L) ZNCC kernel
+    // MAPA DE DISPARIDAD DE IMAGEN 1 A IMAGEN 0
     maxDisp *= -1;
     status = 0;
     status  = clSetKernelArg(zncc_kernel, 0, sizeof(clmemImage0), &clmemImage0);
     status |= clSetKernelArg(zncc_kernel, 1, sizeof(clmemImage1), &clmemImage1);
-    status |= clSetKernelArg(zncc_kernel, 2, sizeof(clmemDispMap2), &clmemDispMap2);
+    status |= clSetKernelArg(zncc_kernel, 2, sizeof(DerIzq), &DerIzq);
     status |= clSetKernelArg(zncc_kernel, 3, sizeof(new_width), &new_width);
     status |= clSetKernelArg(zncc_kernel, 4, sizeof(new_height), &new_height);
     status |= clSetKernelArg(zncc_kernel, 5, sizeof(half_winx), &half_winx);
@@ -247,52 +167,31 @@ int32_t main()
     status |= clSetKernelArg(zncc_kernel, 7, sizeof(win_area), &win_area);
     status |= clSetKernelArg(zncc_kernel, 8, sizeof(minDisp), &minDisp);
     status |= clSetKernelArg(zncc_kernel, 9, sizeof(maxDisp), &maxDisp);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Failed to set kernel arguments for 'zncc_kernel' Dispmap2 !\n");
-        abort();
-    }
-
+    
     status = clEnqueueNDRangeKernel(queue, zncc_kernel, 2, NULL, (const size_t*)&globalWorkSize, (const size_t*)&localWorkSize, 0, NULL, NULL);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Failed to execute 'zncc_kernel' on the device, Dispmap2 !\n");
-        abort();
-    }
-
+    
     // Cross checking kernel
     status = 0;
-    status  = clSetKernelArg(cross_check_kernel, 0, sizeof(clmemDispMap1), &clmemDispMap1);
-    status |= clSetKernelArg(cross_check_kernel, 1, sizeof(clmemDispMap2), &clmemDispMap2);
-    status |= clSetKernelArg(cross_check_kernel, 2, sizeof(clmemDispMapCrossCheck), &clmemDispMapCrossCheck);
+    status  = clSetKernelArg(cross_check_kernel, 0, sizeof(IzqDer), &IzqDer);
+    status |= clSetKernelArg(cross_check_kernel, 1, sizeof(DerIzq), &DerIzq);
+    status |= clSetKernelArg(cross_check_kernel, 2, sizeof(FinalMap), &FinalMap);
     status |= clSetKernelArg(cross_check_kernel, 3, sizeof(THRESHOLD), &THRESHOLD);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Failed to set kernel arguments for 'cross_check_kernel' !\n");
-        abort();
-    }
-
+    
     status = clEnqueueNDRangeKernel(queue, cross_check_kernel, 1, NULL, (const size_t*)&globalWorkSize1D, (const size_t*)&localWorkSize1D, 0, NULL, NULL);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "Failed to execute 'cross_check_kernel' on the device !\n");
-        abort();
-    }
-
+   
     clFinish(queue);
     status = clEnqueueReadBuffer(queue, clmemDispMapCrossCheck, CL_TRUE, 0, new_width*new_height, dDisparity, 0, NULL, NULL);
-    if(status != CL_SUCCESS){
-        fprintf(stderr, "'cross_check_kernel': Failed to send the data to host !\n");
-        abort();
-    }
-
-
+    
     // ******** run occlusion_filling & nomalize on host-code ********
-    Disparity = occlusion_filling(dDisparity, new_width, new_height);
-    normalization(Disparity, new_width, new_height);
+    Disparity = SustituirCeros(dDisparity, new_width, new_height);
+    normalizar(Disparity, new_width, new_height);
 
     clock_gettime(CLOCK_MONOTONIC, &totalEndTime); // Ending time
-    printf("*** Total ZNCC OpenCL executed time: %f s. ***\n", (double)(totalEndTime.tv_sec - totalStartTime.tv_sec) + (double)(totalEndTime.tv_nsec - totalStartTime.tv_nsec)/1000000000);
+    printf("Tiempo total del ZNCC: %f s. ***\n", (double)(totalEndTime.tv_sec - totalStartTime.tv_sec) + (double)(totalEndTime.tv_nsec - totalStartTime.tv_nsec)/1000000000);
 
 
-    // ******** Save file to working directory (setup working directory may differ from IDEs) ********
-    err = lodepng_encode_file("depthmap.png", Disparity, new_width, new_height, LCT_GREY, 8);
+    // GUARDAR MAPA FINAL Y LIBERAR ESPACIO EN MEMORIA
+    lodepng_encode_file("depthmap.png", Disparity, new_width, new_height, LCT_GREY, 8);
     free(image0);
     free(image1);
     free(resize_kernel_file);
@@ -311,15 +210,10 @@ int32_t main()
     clReleaseMemObject(clmemimage1);
     clReleaseMemObject(clmemImage0);
     clReleaseMemObject(clmemImage1);
-    clReleaseMemObject(clmemDispMap1);
-    clReleaseMemObject(clmemDispMap2);
-    clReleaseMemObject(clmemDispMapCrossCheck);
+    clReleaseMemObject(IzqDer);
+    clReleaseMemObject(DerIzq);
+    clReleaseMemObject(LastMap);
 
-    if(err){
-        printf("Error when saving the final 'depthmap.png' %u: %s\n", err, lodepng_error_text(err));
-        return -1;
-    }
-    return 0;
 }
 
 char *leerFichero(const char *filename){ //LEER KERNEL
