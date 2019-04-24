@@ -7,16 +7,18 @@
 #include <time.h>
 #include "lodepng.h"
 
+
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
 #include <CL/cl.h>
 
+using namespace std;
 
-const int resizear= 4;    // valor por el que dividimos la imagen
-const uint32_t half_winx= 8;    
-const uint32_t half_winy= 15;   
-const int threshold= 8;    // Threshold para calcular el mapa final
-const uint32_t win_area= 527;  // (half_winx x 2 + 1) x (half_winY x 2 + 1) = win_area
+const int resizear       = 4;    // valor por el que dividimos la imagen
+const uint32_t half_winx = 8;    
+const uint32_t half_winy = 15;   
+const int threshold      = 8;    // Threshold para calcular el mapa final
+const uint32_t win_area  = 527;  // (half_winx x 2 + 1) x (half_winY x 2 + 1) = win_area
 
 int maxDisp= 64;   
 int minDisp= 0;
@@ -43,15 +45,13 @@ cl_kernel file_to_kernel(cl_context ctx, char const *kernel, char const *kernel_
 void normalizar(uint8_t* lastMap, uint32_t width, uint32_t height);
 uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h);
 
-
-int32_t main()
-{
+int32_t main(){
     uint8_t *image0, *image1; // Imagenes iniciales
     uint8_t *dDisparity, *Disparity;
 
     uint32_t err;                       // Error code, 0 is OK
-    uint32_t new_width, new_height;     // nuevo tamaÃ±o
-    uint32_t wL, hL, wR, hR;            // tamaÃ±os originales
+    uint32_t new_width, new_height;     // nuevo tamaño
+    uint32_t wL, hL, wR, hR;            // tamaños originales
 
     struct timespec totalStartTime, totalEndTime;
 
@@ -70,7 +70,7 @@ int32_t main()
     lodepng_decode32_file(&image0, &wL, &hL, "im0.png");
     lodepng_decode32_file(&image1, &wR, &hR, "im1.png");
     if(wL!=wR || hL!=hR) {
-        printf("Error, tamaÃ±os diferentes.\n");
+        printf("Error, tamaños diferentes.\n");
         free(image0);
         free(image1);
         return -1;
@@ -78,8 +78,8 @@ int32_t main()
     new_width= wL/resizear;
     new_height= hL/resizear;
 
-    clock_gettime(CLOCK_MONOTONIC, &totalStartTime);
-
+    clock_gettime(CLOCK_MONOTONIC,	&totalStartTime );
+	
     // KERNEL
     cl_platform_id platform = 0;
     cl_device_id device = 0;
@@ -95,16 +95,16 @@ int32_t main()
     
     // MEMORIA PARA IMAGENES Y DISPARITY MAPS
     cl_mem clmemImage0 = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
-    cl_mem clmemImageR = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
+    cl_mem clmemImage1 = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
     
     cl_mem IzqDer = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
     cl_mem DerIzq = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
     
     cl_mem FinalMap = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
     
-    char *resize_kernel_file       = read_kernel_file("ReduceGrayMatrix.cl");
-    char *zncc_kernel_file         = read_kernel_file("ZNCC.cl");
-    char *cross_check_kernel_file  = read_kernel_file("CalculateLastMap.cl");
+    char *resize_kernel_file       = leerFichero("ReduceGrayMatrix.cl");
+    char *zncc_kernel_file         = leerFichero("ZNCC.cl");
+    char *cross_check_kernel_file  = leerFichero("CalculateLastMap.cl");
 
     imgDescriptor.image_type = CL_MEM_OBJECT_IMAGE2D;
     imgDescriptor.image_width = wL;
@@ -116,18 +116,18 @@ int32_t main()
     Disparity  = (uint8_t*) malloc(new_width*new_height);
 
 
-    cl_kernel resize_kernel     = build_kernel_from_file(ctx, resize_kernel_file, "ReduceGrayMatrix");
-    cl_kernel zncc_kernel       = build_kernel_from_file(ctx, zncc_kernel_file, "ZNCC");
-    cl_kernel cross_check_kernel= build_kernel_from_file(ctx, cross_check_kernel_file, "CalculateLastMap");
+    cl_kernel resize_kernel     = file_to_kernel(ctx, resize_kernel_file, "ReduceGrayMatrix");
+    cl_kernel zncc_kernel       = file_to_kernel(ctx, zncc_kernel_file, "ZNCC");
+    cl_kernel cross_check_kernel= file_to_kernel(ctx, cross_check_kernel_file, "CalculateLastMap");
 
     // CREAR OBJETOS IMAGENES EN MEMROIA******** Create images memory objects ********
-    cl_mem clmemimage0 = clCreateImage2D(ctx, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, &format, imgDescriptor.image_width, imgDescriptor.image_height, imgDescriptor.image_row_pitch, image0, &status);
-    cl_mem clmemimage1 = clCreateImage2D(ctx, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, &format, imgDescriptor.image_width, imgDescriptor.image_height, imgDescriptor.image_row_pitch, image1, &status);
+    cl_mem clmemOrigImage0 = clCreateImage2D(ctx, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, &format, imgDescriptor.image_width, imgDescriptor.image_height, imgDescriptor.image_row_pitch, image0, &status);
+    cl_mem clmemOrigImage1 = clCreateImage2D(ctx, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, &format, imgDescriptor.image_width, imgDescriptor.image_height, imgDescriptor.image_row_pitch, image1, &status);
     
     // LLAMADA A LOS KERNELS
     status = 0;
-    status  = clSetKernelArg(resize_kernel, 0, sizeof(clmemimage0), &clmemimage0);
-    status |= clSetKernelArg(resize_kernel, 1, sizeof(clmemimage1), &clmemimage1);
+    status  = clSetKernelArg(resize_kernel, 0, sizeof(clmemOrigImage0), &clmemOrigImage0);
+    status |= clSetKernelArg(resize_kernel, 1, sizeof(clmemOrigImage1), &clmemOrigImage1);
     status |= clSetKernelArg(resize_kernel, 2, sizeof(clmemImage0), &clmemImage0);
     status |= clSetKernelArg(resize_kernel, 3, sizeof(clmemImage1), &clmemImage1);
     status |= clSetKernelArg(resize_kernel, 4, sizeof(new_width), &new_width);
@@ -175,12 +175,12 @@ int32_t main()
     status  = clSetKernelArg(cross_check_kernel, 0, sizeof(IzqDer), &IzqDer);
     status |= clSetKernelArg(cross_check_kernel, 1, sizeof(DerIzq), &DerIzq);
     status |= clSetKernelArg(cross_check_kernel, 2, sizeof(FinalMap), &FinalMap);
-    status |= clSetKernelArg(cross_check_kernel, 3, sizeof(THRESHOLD), &THRESHOLD);
+    status |= clSetKernelArg(cross_check_kernel, 3, sizeof(threshold), &threshold);
     
     status = clEnqueueNDRangeKernel(queue, cross_check_kernel, 1, NULL, (const size_t*)&globalWorkSize1D, (const size_t*)&localWorkSize1D, 0, NULL, NULL);
    
     clFinish(queue);
-    status = clEnqueueReadBuffer(queue, clmemDispMapCrossCheck, CL_TRUE, 0, new_width*new_height, dDisparity, 0, NULL, NULL);
+    status = clEnqueueReadBuffer(queue, FinalMap, CL_TRUE, 0, new_width*new_height, dDisparity, 0, NULL, NULL);
     
     // ******** run occlusion_filling & nomalize on host-code ********
     Disparity = SustituirCeros(dDisparity, new_width, new_height);
@@ -206,13 +206,13 @@ int32_t main()
     clReleaseCommandQueue(queue);
     clReleaseContext(ctx);
 
-    clReleaseMemObject(clmemimage0);
-    clReleaseMemObject(clmemimage1);
+    clReleaseMemObject(clmemOrigImage0);
+    clReleaseMemObject(clmemOrigImage1);
     clReleaseMemObject(clmemImage0);
     clReleaseMemObject(clmemImage1);
     clReleaseMemObject(IzqDer);
     clReleaseMemObject(DerIzq);
-    clReleaseMemObject(LastMap);
+    clReleaseMemObject(FinalMap);
 
 }
 
@@ -266,7 +266,7 @@ uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h){
 
 	for (i = 0; i < h; i++) {
 		for (j = 0; j < w; j++) {
-			result[i*w + j] = dispMap[i*w + j];
+			res[i*w + j] = dispMap[i*w + j];
 			if (dispMap[i*w + j] == 0) {
 				aux = true;
 				auxValor = 0;
@@ -275,7 +275,7 @@ uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h){
 					win_x = -auxValor;
 					for (win_y = -auxValor; win_y <= auxValor && aux; win_y++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
-							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
+							res[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
 							break;
 						}
@@ -283,7 +283,7 @@ uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h){
 					win_x = auxValor;
 					for (win_y = -auxValor; win_y <= auxValor && aux; win_y++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
-							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
+							res[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
 							break;
 						}
@@ -291,7 +291,7 @@ uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h){
 					win_y = -auxValor;
 					for (win_x = -auxValor + 1; win_x <= auxValor - 1 && aux; win_x++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
-							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
+							res[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
 							break;
 						}
@@ -299,7 +299,7 @@ uint8_t* SustituirCeros(const uint8_t* dispMap, uint32_t w, uint32_t h){
 					win_y = auxValor;
 					for (win_x = -auxValor + 1; win_x <= auxValor && aux; win_x++) {
 						if (0 <= i + win_y && i + win_y < h && 0 <= j + win_x && j + win_x < w && dispMap[(i + win_y)*w + (j + win_x)] != 0) {
-							result[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
+							res[i*w + j] = dispMap[(i + win_y)*w + (j + win_x)];
 							aux = false;
 							break;
 						}
@@ -329,6 +329,9 @@ void normalizar(uint8_t* lastMap, uint32_t width, uint32_t height) {
 	}	
 	maxValue -= minValue;
 	for (i = 0; i < width*height; i++) {
-		lastMap [i] = (UCHAR_MAX*(lastMap i] - minValue)/maxValue);
+		lastMap [i] = (UCHAR_MAX*(lastMap[i] - minValue)/maxValue);
 	}
 }
+
+
+
