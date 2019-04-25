@@ -2,7 +2,7 @@ __constant sampler_ttmp = CLK_NORMALIZED_COORDS_FALSE| CLK_ADDRESS_CLAMP_TO_EDGE
 	
 __kernel void ReduceGrayMatrix(__read_only image2d_t image0, __read_only image2d_t image1, __global uchar *reduceim0, __global  uchar *reduceim1, int width, int height) {
 		
-	constinti = get_global_id(0);
+	constint i = get_global_id(0);
 	constint j = get_global_id(1);
 
 	int2 Index = { (4*j - 1*(j >0)), (4*i - 1*(i>0)) };
