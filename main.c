@@ -50,8 +50,8 @@ int32_t main(){
     uint8_t *dDisparity, *Disparity;
 
     uint32_t err;                       // Error code, 0 is OK
-    uint32_t new_width, new_height;     // nuevo tamaño
-    uint32_t wL, hL, wR, hR;            // tamaños originales
+    uint32_t new_width, new_height;     // nuevo tamaÃ±o
+    uint32_t wL, hL, wR, hR;            // tamaÃ±os originales
 
     struct timespec totalStartTime, totalEndTime;
 
@@ -67,10 +67,11 @@ int32_t main(){
 
 
     // CARGAR IMAGENES EN MEMORIA Y COMPROBAR POSIBLES ERRORES
-    lodepng_decode32_file(&image0, &wL, &hL, "im0.png");
-    lodepng_decode32_file(&image1, &wR, &hR, "im1.png");
+    lodepng_decode32_file(&image0, &wL, &hL, "im0.png");  //CARGANDO IMAGEN DERECHA
+    lodepng_decode32_file(&image1, &wR, &hR, "im1.png");  //CARGANDO IMAGEN IZQUIERDA
+	    
     if(wL!=wR || hL!=hR) {
-        printf("Error, tamaños diferentes.\n");
+        printf("Error, tamaÃ±os diferentes.\n");
         free(image0);
         free(image1);
         return -1;
@@ -78,8 +79,6 @@ int32_t main(){
     new_width= wL/resizear;
     new_height= hL/resizear;
 
-    clock_gettime(CLOCK_MONOTONIC,	&totalStartTime );
-	
     // KERNEL
     cl_platform_id platform = 0;
     cl_device_id device = 0;
@@ -87,25 +86,26 @@ int32_t main(){
 
     status = clGetPlatformIDs(1, &platform, NULL);
     int gpu = 1; // O : CPU, 1 : GPU
-    status = clGetDeviceIDs(platform, gpu ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device, NULL);
+    status = clGetDeviceIDs(platform, gpu ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device, NULL); 
 
     props[1] = (cl_context_properties)platform;
-    ctx = clCreateContext( props, 1, &device, NULL, NULL, &status );
-    queue = clCreateCommandQueue( ctx, device, 0, &status );
+    ctx = clCreateContext( props, 1, &device, NULL, NULL, &status );	//CREATE CONTEXT FOR OpenCL
+    queue = clCreateCommandQueue( ctx, device, 0, &status ); 		//CREATE QUEUE FOR OpenCL CONTEXT
     
     // MEMORIA PARA IMAGENES Y DISPARITY MAPS
-    cl_mem clmemImage0 = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
-    cl_mem clmemImage1 = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
+    cl_mem clmemImage0 = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status); //CREAR BUFFER IMAGEN DERECHA
+    cl_mem clmemImage1 = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status); //CREAR BUFFER IMAGEN IZQUIERDA
     
-    cl_mem IzqDer = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
-    cl_mem DerIzq = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
+    cl_mem IzqDer = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status); //CREAR BUFFER PARA DISPARITY MAP IzqDer
+    cl_mem DerIzq = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status); //CREAR BUFFER PARA DISPARITY MAP DerIzq
     
-    cl_mem FinalMap = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status);
+    cl_mem FinalMap = clCreateBuffer(ctx, CL_MEM_READ_ONLY, new_width*new_height, 0, &status); //CREAR BUFFER PARA FINAL DISPARITY MAP 
     
+    // LEER ARCHIVOS DE KERNEL E INICIALIZAR
     char *resize_kernel_file       = leerFichero("ReduceGrayMatrix.cl");
     char *zncc_kernel_file         = leerFichero("ZNCC.cl");
     char *cross_check_kernel_file  = leerFichero("CalculateLastMap.cl");
-
+	
     imgDescriptor.image_type = CL_MEM_OBJECT_IMAGE2D;
     imgDescriptor.image_width = wL;
     imgDescriptor.image_height = hL;
@@ -120,7 +120,7 @@ int32_t main(){
     cl_kernel zncc_kernel       = file_to_kernel(ctx, zncc_kernel_file, "ZNCC");
     cl_kernel cross_check_kernel= file_to_kernel(ctx, cross_check_kernel_file, "CalculateLastMap");
 
-    // CREAR OBJETOS IMAGENES EN MEMROIA******** Create images memory objects ********
+    // CREAR OBJETOS IMAGENES EN MEMROIA
     cl_mem clmemOrigImage0 = clCreateImage2D(ctx, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, &format, imgDescriptor.image_width, imgDescriptor.image_height, imgDescriptor.image_row_pitch, image0, &status);
     cl_mem clmemOrigImage1 = clCreateImage2D(ctx, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, &format, imgDescriptor.image_width, imgDescriptor.image_height, imgDescriptor.image_row_pitch, image1, &status);
     
