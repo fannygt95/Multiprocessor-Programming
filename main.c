@@ -61,6 +61,9 @@ int32_t main(){
 	if (frequencyStart.QuadPart == 0) 
 		::QueryPerformanceFrequency(&frequencyStart);
 	::QueryPerformanceCounter(&starTime);
+	
+	printf("Comenzando programa, esto tardará unos minutos...\n");
+
 
 	cl_context ctx;
 	cl_command_queue queue;
@@ -199,7 +202,7 @@ int32_t main(){
 	::QueryPerformanceCounter(&endTime);
 
 
-	printf("Tiempo total del ZNCC: %f s. ***\n", (endTime.QuadPart / double(frequencyEnd.QuadPart)) - (starTime.QuadPart / double(frequencyStart.QuadPart));
+	printf("Tiempo total: %f s.\n", (endTime.QuadPart / double(frequencyEnd.QuadPart)) - (starTime.QuadPart / double(frequencyStart.QuadPart));
 
 
 	// GUARDAR MAPA FINAL Y LIBERAR ESPACIO EN MEMORIA
