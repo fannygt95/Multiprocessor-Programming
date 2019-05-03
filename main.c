@@ -21,20 +21,7 @@ const uint32_t win_area = 527;  // (half_winx x 2 + 1) x (half_winY x 2 + 1) = w
 
 int maxDisp = 64;
 int minDisp = 0;
-/*
-typedef struct cl_image_desc {
-	cl_mem_object_type image_type;
-	size_t image_width;
-	size_t image_height;
-	size_t image_depth;
-	size_t image_array_size;
-	size_t image_row_pitch;
-	size_t image_slice_pitch;
-	cl_uint num_mip_levels;
-	cl_uint num_samples;
-	cl_mem buffer;
-} cl_image_desc;
-*/
+
 cl_image_desc imgDescriptor;        // Image descriptor contains type and dimensions of the image
 cl_image_format format = { CL_RGBA, CL_UNSIGNED_INT8 };
 
